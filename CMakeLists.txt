@@ -13,17 +13,32 @@ endif()
 # Set the CMAKE_INSTALL_PREFIX to the INSTALL_PREFIX variable
 set(CMAKE_INSTALL_PREFIX ${INSTALL_PREFIX})
 
-set(COMPILER_INFO "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+set(COMPILER_INFO "${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}")
 message(STATUS "Compiler Info: ${COMPILER_INFO}")
 
+# Configure a header file to pass INSTALL_PREFIX and PROJECT_VERSION
 configure_file(
     ${PROJECT_SOURCE_DIR}/src/include/config.h.in
     ${PROJECT_SOURCE_DIR}/src/include/config.h
     @ONLY
 )
 
-# Include directories
+# Include directories for your project
 include_directories(${PROJECT_SOURCE_DIR}/src/include)
+
+# Add SDL3 submodule
+add_subdirectory(external/SDL3)
+
+# Ensure SDL3 is built as a shared library
+set(SDL3_SHARED ON CACHE BOOL "Build SDL3 as a shared library" FORCE)
+set(SDL3_STATIC OFF CACHE BOOL "Build SDL3 as a static library" FORCE)
+
+# Add SDL3_mixer submodule
+add_subdirectory(external/SDL3_mixer)
+
+# Ensure SDL3_mixer is built as a shared library
+set(SDL3MIXER_SHARED ON CACHE BOOL "Build SDL3_mixer as a shared library" FORCE)
+set(SDL3MIXER_STATIC OFF CACHE BOOL "Build SDL3_mixer as a static library" FORCE)
 
 # Source files
 file(GLOB_RECURSE SOURCES
@@ -34,24 +49,19 @@ file(GLOB_RECURSE SOURCES
 # Add executable
 add_executable(cmus ${SOURCES})
 
-# Configure a header file to pass INSTALL_PREFIX and PROJECT_VERSION
-configure_file(
-    ${PROJECT_SOURCE_DIR}/src/include/config.h.in
-    ${PROJECT_SOURCE_DIR}/src/include/config.h
-    @ONLY
-)
+# Link SDL3 and SDL3_mixer to the executable
+target_link_libraries(cmus PRIVATE SDL3::SDL3 SDL3_mixer::SDL3_mixer ncurses)
 
 # Install targets
 install(TARGETS cmus DESTINATION bin)
 
 # Uninstall target
 if(NOT TARGET uninstall)
-  configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-    IMMEDIATE @ONLY)
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+        IMMEDIATE @ONLY)
 
-  add_custom_target(uninstall
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+    add_custom_target(uninstall
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 endif()
-
