@@ -12,16 +12,23 @@
 #define BACKSPACE 263
 #define ESCAPE 27
 #define ENTER 10
+#define SPACE 32
 
-void cleanup(void) {
+typedef struct {
+        const Str_Array *songfps;
+        size_t sel_songfps_index;
+        int sel_fst_song;
+        int paused;
+} Context;
+
+static void cleanup(void) {
         Mix_HaltMusic();
         Mix_CloseAudio();
         endwin();
         SDL_Quit();
 }
 
-void start_audio(const char *song) {
-        endwin();
+static void play_music(const char *song) {
         assert(song);
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
                 fprintf(stderr, "SDL audio initialization failed: %s\n", SDL_GetError());
@@ -33,6 +40,7 @@ void start_audio(const char *song) {
                 SDL_Quit();
                 exit(1);
         }
+
         Mix_Music* music = Mix_LoadMUS(song);
         if (!music) {
                 fprintf(stderr, "Failed to load music '%s': %s\n", song, Mix_GetError());
@@ -40,6 +48,7 @@ void start_audio(const char *song) {
                 SDL_Quit();
                 exit(1);
         }
+
         if (Mix_PlayMusic(music, -1) < 0) {
                 fprintf(stderr, "Failed to play music: %s\n", Mix_GetError());
                 Mix_FreeMusic(music);
@@ -49,14 +58,54 @@ void start_audio(const char *song) {
         }
 }
 
-void run(const Str_Array *songfps) {
-        int num_decoders = Mix_GetNumMusicDecoders();
-        printf("Supported music decoders:\n");
-        for (int i = 0; i < num_decoders; i++) {
-                printf("  %s\n", Mix_GetMusicDecoder(i));
-        }
-        exit(0);
+static void start_song(Context *ctx) {
+        Mix_HaltMusic();
+        play_music(ctx->songfps->data[ctx->sel_songfps_index]);
+        ctx->paused = 0;
+        ctx->sel_fst_song = 1;
+}
 
+static void pause_audio(Context *ctx) {
+        if (!ctx->sel_fst_song) return;
+        ctx->paused = !ctx->paused;
+        Mix_PauseAudio(ctx->paused);
+}
+
+static void handle_key_down(Context *ctx) {
+        if (ctx->sel_songfps_index < ctx->songfps->len - 1) {
+                ctx->sel_songfps_index++;
+        }
+}
+
+static void handle_key_up(Context *ctx) {
+        if (ctx->sel_songfps_index > 0) {
+                ctx->sel_songfps_index--;
+        }
+}
+
+static void init_ncurses(void) {
+        initscr();
+        raw();
+        keypad(stdscr, TRUE);
+        noecho();
+        curs_set(0);
+}
+
+static void show_song_list(Context *ctx) {
+        clear();
+        for (size_t i = 0; i < ctx->songfps->len; ++i) {
+                if (i == ctx->sel_songfps_index) {
+                        attron(A_REVERSE);
+                }
+                mvprintw(i, 0, "%s\n", ctx->songfps->data[i]);
+                if (i == ctx->sel_songfps_index) {
+                        attroff(A_REVERSE);
+                }
+        }
+        refresh();
+}
+
+void run(const Str_Array *songfps) {
         atexit(cleanup);
 
         if (SDL_Init(SDL_INIT_AUDIO) < 0) {
@@ -64,41 +113,36 @@ void run(const Str_Array *songfps) {
                 exit(1);
         }
 
-        initscr();
-        raw();
-        keypad(stdscr, TRUE);
-        noecho();
-        curs_set(0);
+        init_ncurses();
 
-        int sel = 0;
+        Context ctx = (Context) {
+                .songfps = songfps,
+                .sel_songfps_index = 0,
+                .sel_fst_song = 0,
+                .paused = 0,
+        };
+
         int ch;
-
         while (1) {
-                clear();
-                for (int i = 0; i < (int)songfps->len; ++i) {
-                        if (i == sel) {
-                                attron(A_REVERSE);
-                        }
-                        mvprintw(i, 0, "%s\n", songfps->data[i]);
-                        if (i == sel) {
-                                attroff(A_REVERSE);
-                        }
-                }
-                refresh();
+                show_song_list(&ctx);
                 ch = getch();
-                if (ch == CTRL('q')) {
-                        break;
-                } else if (ch == KEY_UP) {
-                        if (sel > 0) {
-                                sel--;
-                        }
-                } else if (ch == KEY_DOWN) {
-                        if (sel < (int)songfps->len - 1) {
-                                sel++;
-                        }
-                } else if (ch == ENTER) {
-                        //Mix_HaltMusic();
-                        start_audio(songfps->data[sel]);
+                switch (ch) {
+                case CTRL('q'): goto done;
+                case KEY_UP: {
+                        handle_key_up(&ctx);
+                } break;
+                case KEY_DOWN: {
+                        handle_key_down(&ctx);
+                } break;
+                case SPACE: {
+                        pause_audio(&ctx);
+                } break;
+                case ENTER: {
+                        start_song(&ctx);
+                } break;
+                default: (void)0x0;
                 }
         }
+ done:
+        (void)0x0;
 }
