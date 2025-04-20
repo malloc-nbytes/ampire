@@ -21,6 +21,9 @@ static struct {
         int paused;
         ssize_t currently_playing_index;
         Mix_Music *current_music;
+        Uint64 start_ticks;      // Time when song started
+        Uint64 paused_ticks;     // Accumulated paused time
+        Uint64 pause_start;      // Time when pause began
 } ctx = {
         .songfps = NULL,
         .sel_songfps_index = 0,
@@ -28,6 +31,9 @@ static struct {
         .paused = 0,
         .currently_playing_index = -1,
         .current_music = NULL,
+        .start_ticks = 0,
+        .paused_ticks = 0,
+        .pause_start = 0,
 };
 
 static void cleanup(void) {
@@ -42,6 +48,12 @@ static void cleanup(void) {
         SDL_Quit();
 }
 
+// Format time in seconds to MM:SS
+static void format_time(int seconds, char *buf, size_t bufsize) {
+        int min = seconds / 60;
+        int sec = seconds % 60;
+        snprintf(buf, bufsize, "%02d:%02d", min, sec);
+}
 
 static void play_music(const char *song) {
         assert(song);
@@ -106,28 +118,31 @@ static void start_song(void) {
         ctx.currently_playing_index = ctx.sel_songfps_index;
         play_music(ctx.songfps->data[ctx.sel_songfps_index]);
         ctx.paused = 0;
+
+        ctx.start_ticks = SDL_GetTicks(); // Record start time
+        ctx.paused_ticks = 0;
+        ctx.pause_start = 0;
+
         ctx.sel_fst_song = 1;
 }
 
 static void music_finished(void) {
-        // Move to next song, wrap around if at end
         ctx.currently_playing_index = (ctx.currently_playing_index + 1) % ctx.songfps->len;
-        ctx.sel_songfps_index = ctx.currently_playing_index;
-        Mix_HaltMusic(); // Ensure current music is stopped
+        // ctx.sel_songfps_index = ctx.currently_playing_index;
+        Mix_HaltMusic();
         start_song();
 }
-
-/* static void start_song(void) { */
-/*         ctx.currently_playing_index = ctx.sel_songfps_index; */
-/*         play_music(ctx.songfps->data[ctx.sel_songfps_index]); */
-/*         ctx.paused = 0; */
-/*         ctx.sel_fst_song = 1; */
-/* } */
 
 static void pause_audio(void) {
         if (!ctx.sel_fst_song) return;
         ctx.paused = !ctx.paused;
         Mix_PauseAudio(ctx.paused);
+        if (ctx.paused) {
+                ctx.pause_start = SDL_GetTicks(); // Start of pause
+        } else {
+                ctx.paused_ticks += SDL_GetTicks() - ctx.pause_start; // Add pause duration
+                ctx.pause_start = 0;
+        }
 }
 
 static void handle_key_down(void) {
@@ -152,6 +167,7 @@ static void init_ncurses(void) {
         keypad(stdscr, TRUE);
         noecho();
         curs_set(0);
+        timeout(500);
 }
 
 static void show_song_list(void) {
@@ -167,7 +183,17 @@ static void show_song_list(void) {
         }
         if (ctx.currently_playing_index != -1) {
                 printw("=======\n");
-                printw("Now Playing: %s", ctx.songfps->data[ctx.currently_playing_index]);
+                printw("Now Playing: %s\n", ctx.songfps->data[ctx.currently_playing_index]);
+
+                // Calculate time played
+                Uint64 current_ticks = SDL_GetTicks();
+                Uint64 elapsed_ms = ctx.paused ? (ctx.pause_start - ctx.start_ticks - ctx.paused_ticks)
+                        : (current_ticks - ctx.start_ticks - ctx.paused_ticks);
+                int time_played = elapsed_ms / 1000; // Convert to seconds
+
+                char time_str[16];
+                format_time(time_played, time_str, sizeof(time_str));
+                printw("Time: %s", time_str);
         }
         refresh();
 }
