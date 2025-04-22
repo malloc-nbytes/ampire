@@ -60,6 +60,8 @@ static struct {
 static WINDOW *left_win;  // Window for song list
 static WINDOW *right_win; // Window for currently playing info
 
+static void pause_audio(void);
+
 static void cleanup(void) {
         if (left_win) delwin(left_win);
         if (right_win) delwin(right_win);
@@ -173,6 +175,10 @@ static void play_music(const char *song) {
 static void music_finished(void);
 
 static void start_song(void) {
+        if (ctx.paused) {
+                pause_audio();
+        }
+
         Mix_HookMusicFinished(music_finished);
         ctx.currently_playing_index = ctx.sel_songfps_index;
         play_music(ctx.songfps->data[ctx.sel_songfps_index]);
@@ -202,6 +208,7 @@ static void music_finished(void) {
         dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
         Mix_HaltMusic();
         start_song();
+        adjust_scroll_offset();
 }
 
 static void pause_audio(void) {
@@ -346,7 +353,13 @@ static void draw_currently_playing(void) {
                 char time_str[16];
                 format_time(time_played, time_str, sizeof(time_str));
 
-                mvwprintw(right_win, 4, 1, ctx.paused ? "Paused" : "Elapsed: [%s]", time_str);
+                if (ctx.paused) {
+                        wattron(right_win, A_REVERSE | A_BLINK);
+                        mvwprintw(right_win, 4, 1, "Paused");
+                        wattroff(right_win, A_REVERSE | A_BLINK);
+                } else {
+                        mvwprintw(right_win, 4, 1, "Elapsed: [%s]", time_str);
+                }
 
                 mvwprintw(right_win, 5, 1, "Advance: %s",
                           ctx.mat == MAT_NORMAL ? "Normal" :
@@ -484,7 +497,7 @@ static void handle_next_song(void) {
         ctx.currently_playing_index = ctx.sel_songfps_index = r;
 
         Mix_HaltMusic();
-        start_song();
+        //start_song();
 
         // Adjust scroll offset to keep selection visible
         adjust_scroll_offset();
@@ -648,9 +661,11 @@ void run(const Str_Array *songfps) {
                 case KEY_DOWN: {
                         handle_key_down();
                 } break;
+                case 'h':
                 case KEY_LEFT: {
                         handle_key_left();
                 } break;
+                case 'l':
                 case KEY_RIGHT: {
                         handle_key_right();
                 } break;
@@ -660,10 +675,12 @@ void run(const Str_Array *songfps) {
                 case 'a': {
                         handle_adv_type();
                 } break;
+                case 'L':
                 case '.':
                 case '>': {
                         handle_next_song();
                 } break;
+                case 'H':
                 case ',':
                 case '<': {
                         handle_prev_song();

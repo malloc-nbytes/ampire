@@ -10,6 +10,7 @@
 #include "flag.h"
 
 #define FLAG_1HY_HELP 'h'
+#define FLAG_1HY_RECURSIVE 'r'
 #define FLAG_2HY_HELP "help"
 #define FLAG_2HY_NONOTIF "no-notif"
 #define FLAG_2HY_RECURSIVE "recursive"
@@ -19,7 +20,9 @@ size_t g_flags = 0x0;
 void usage(void) {
         printf("Usage: cmus <dir> [options...]\n");
         printf("Options:\n");
-        printf("    -%c, --%s    print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
+        printf("    -%c, --%s         print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
+        printf("        --%s     do not display notifications on song change\n", FLAG_2HY_NONOTIF);
+        printf("    -%c, --%s    enable recursive search for songs\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
         exit(0);
 }
 
@@ -36,14 +39,15 @@ int main(int argc, char **argv) {
         while (clap_next(&arg)) {
                 if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_HELP) {
                         usage();
+                } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_RECURSIVE) {
+                        g_flags |= FT_RECURSIVE;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_HELP)) {
                         usage();
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_NONOTIF)) {
                         g_flags |= FT_NONOTIF;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_RECURSIVE)) {
                         g_flags |= FT_RECURSIVE;
-                }
-                else if (arg.hyphc > 0) {
+                } else if (arg.hyphc > 0) {
                         err_wargs("invalid flag: %s", arg.start);
                 } else {
                         dyn_array_append(dirs, arg.start);
