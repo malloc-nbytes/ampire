@@ -55,7 +55,7 @@ then try running it again.
 | [a]           | Toggle song advancement between normal, shuffle, and loop |
 | [SPACE]       | Pause / play                                              |
 | [f]           | Open a file dialogue (unimplemented)                      |
-| [\/]          | Search the song list with regex                           |
+| [/]           | Search the song list with regex                           |
 | [n]           | Search for next match                                     |
 | [N]           | Search for previous match                                 |
 | [ENTER]       | Play song from song list                                  |
