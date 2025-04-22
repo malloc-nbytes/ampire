@@ -8,8 +8,8 @@
 #include <ncurses.h>
 
 #include "tinyfiledialogs.h"
-#include "cmus-display.h"
-#include "cmus-flag.h"
+#include "ampire-display.h"
+#include "ampire-flag.h"
 
 #define Mix_GetError    SDL_GetError
 
@@ -185,7 +185,7 @@ static void start_song(void) {
         ctx.paused = 0;
 
         if ((g_flags & FT_NONOTIF) == 0) {
-                tinyfd_notifyPopup("[cmus]: Up Next", ctx.songnames.data[ctx.sel_songfps_index], "info");
+                tinyfd_notifyPopup("[ampire]: Up Next", ctx.songnames.data[ctx.sel_songfps_index], "info");
         }
 
         ctx.start_ticks = SDL_GetTicks(); // Record start time
@@ -620,7 +620,7 @@ static void handle_search(size_t startfrom, int rev, char *prevsearch) {
                 }
         }
         if (found == -1) {
-                tinyfd_notifyPopup("[cmus]: Could not find song", query, "warning");
+                tinyfd_notifyPopup("[ampire]: Could not find song", query, "warning");
                 return;
         }
 

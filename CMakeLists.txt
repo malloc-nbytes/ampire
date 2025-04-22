@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25.1)
-project(cmus VERSION 1.0.0)
+project(ampire VERSION 1.0.0)
 
 # Define INSTALL_PREFIX and PROJECT_VERSION as cache variables
 set(INSTALL_PREFIX "" CACHE STRING "The installation prefix")
@@ -68,13 +68,13 @@ file(GLOB_RECURSE SOURCES
 )
 
 # Add executable
-add_executable(cmus ${SOURCES})
+add_executable(ampire ${SOURCES})
 
 # Link SDL3 and SDL3_mixer to the executable
-target_link_libraries(cmus PRIVATE SDL3::SDL3-shared SDL3_mixer::SDL3_mixer-shared ncurses)
+target_link_libraries(ampire PRIVATE SDL3::SDL3-shared SDL3_mixer::SDL3_mixer-shared ncurses)
 
 # Install targets
-install(TARGETS cmus DESTINATION bin)
+install(TARGETS ampire DESTINATION bin)
 
 # Uninstall target
 if(NOT TARGET uninstall)

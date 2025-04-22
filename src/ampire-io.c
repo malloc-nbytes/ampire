@@ -4,9 +4,9 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include "cmus-io.h"
+#include "ampire-io.h"
 #include "dyn_array.h"
-#include "cmus-flag.h"
+#include "ampire-flag.h"
 
 static int is_music_f(const char *fp) {
         size_t last = 0;

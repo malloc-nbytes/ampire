@@ -4,10 +4,10 @@
 #include "clap.h"
 #include "dyn_array.h"
 #include "ds/array.h"
-#include "cmus-utils.h"
-#include "cmus-io.h"
-#include "cmus-display.h"
-#include "cmus-flag.h"
+#include "ampire-utils.h"
+#include "ampire-io.h"
+#include "ampire-display.h"
+#include "ampire-flag.h"
 
 #define FLAG_1HY_HELP 'h'
 #define FLAG_1HY_RECURSIVE 'r'
@@ -18,7 +18,7 @@
 size_t g_flags = 0x0;
 
 void usage(void) {
-        printf("Usage: cmus <dir> [options...]\n");
+        printf("Usage: ampire <dir> [options...]\n");
         printf("Options:\n");
         printf("    -%c, --%s         print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
         printf("        --%s     do not display notifications on song change\n", FLAG_2HY_NONOTIF);
