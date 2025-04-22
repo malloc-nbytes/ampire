@@ -45,6 +45,8 @@ static void walk(const char *directory, Str_Array *arr) {
                 // Check if it's a regular file and a music file.
                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) {
                         dyn_array_append(*arr, strdup(path));
+                } else if (S_ISDIR(st.st_mode)) {
+                        walk(path, arr);
                 }
         }
 

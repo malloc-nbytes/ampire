@@ -29,6 +29,7 @@ static struct {
         Str_Array songnames;
         Size_T_Array history_idxs;
         size_t sel_songfps_index;
+        size_t scroll_offset;
         int sel_fst_song;
         int paused;
         Music_Adv_Type mat;
@@ -42,6 +43,7 @@ static struct {
         .history_idxs = {0},
         .songnames = {0},
         .sel_songfps_index = 0,
+        .scroll_offset = 0,
         .sel_fst_song = 0,
         .paused = 0,
         .mat = MAT_NORMAL,
@@ -206,19 +208,52 @@ static void seek_music(double seconds) {
         ctx.start_ticks = SDL_GetTicks() - (Uint64)(new_position * 1000) - ctx.paused_ticks;
 }
 
+
 static void handle_key_down(void) {
+        if (ctx.songfps->len == 0) return;
+
+        // Move selection down, wrapping to the start if at the end
         if (ctx.sel_songfps_index < ctx.songfps->len - 1) {
                 ctx.sel_songfps_index++;
         } else {
                 ctx.sel_songfps_index = 0;
         }
+
+        // Adjust scroll offset to keep selection visible
+        int max_y, max_x;
+        getmaxyx(left_win, max_y, max_x);
+        size_t visible_rows = max_y - 2; // Account for borders
+
+        if (ctx.sel_songfps_index < ctx.scroll_offset) {
+                // Selection moved above visible area (e.g., wrapped to end)
+                ctx.scroll_offset = ctx.sel_songfps_index;
+        } else if (ctx.sel_songfps_index >= ctx.scroll_offset + visible_rows) {
+                // Selection moved below visible area
+                ctx.scroll_offset = ctx.sel_songfps_index - visible_rows + 1;
+        }
 }
 
 static void handle_key_up(void) {
+        if (ctx.songfps->len == 0) return;
+
+        // Move selection up, wrapping to the end if at the top
         if (ctx.sel_songfps_index > 0) {
                 ctx.sel_songfps_index--;
         } else {
-                ctx.sel_songfps_index = ctx.songfps->len-1;
+                ctx.sel_songfps_index = ctx.songfps->len - 1;
+        }
+
+        // Adjust scroll offset to keep selection visible
+        int max_y, max_x;
+        getmaxyx(left_win, max_y, max_x);
+        size_t visible_rows = max_y - 2; // Account for borders
+
+        if (ctx.sel_songfps_index < ctx.scroll_offset) {
+                // Selection moved above visible area, scroll up
+                ctx.scroll_offset = ctx.sel_songfps_index;
+        } else if (ctx.sel_songfps_index >= ctx.scroll_offset + visible_rows) {
+                // Selection moved below visible area, scroll down
+                ctx.scroll_offset = ctx.sel_songfps_index - visible_rows + 1;
         }
 }
 
@@ -238,7 +273,6 @@ static void init_ncurses(void) {
         curs_set(0);
         timeout(100);
 
-        // Calculate dimensions
         int max_y, max_x;
         getmaxyx(stdscr, max_y, max_x);
         int half_width = max_x / 2;
@@ -326,18 +360,20 @@ static void draw_currently_playing(void) {
 
 static void draw_song_list(void) {
         werase(left_win);
-
         box(left_win, 0, 0);
 
-        // Display song list in left window (inside borders)
         int max_y, max_x;
         getmaxyx(left_win, max_y, max_x);
-        for (size_t i = 0; i < ctx.songfps->len && i < (size_t)(max_y - 2); ++i) {
+        size_t visible_rows = max_y - 2; // Account for borders
+
+        // Display songs starting from scroll_offset (for scrolling)
+        for (size_t i = ctx.scroll_offset; i < ctx.songfps->len && i < ctx.scroll_offset + visible_rows; ++i) {
+                size_t display_row = i - ctx.scroll_offset + 1; // Row relative to window (1 to avoid top border)
                 if (i == ctx.sel_songfps_index) {
                         wattron(left_win, A_REVERSE);
                 }
                 // Print at x=1 to avoid left border, truncate to fit inside right border
-                mvwprintw(left_win, i + 1, 1, "%.*s", max_x - 2, ctx.songnames.data[i]);
+                mvwprintw(left_win, display_row, 1, "%.*s", max_x - 2, ctx.songnames.data[i]);
                 if (i == ctx.sel_songfps_index) {
                         wattroff(left_win, A_REVERSE);
                 }
@@ -345,13 +381,10 @@ static void draw_song_list(void) {
                         const char *equalizer_frames[] = {"|", "/", "-", "\\"};
                         int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
                         int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
-                        mvwprintw(left_win, i+1, strlen(ctx.songnames.data[i]) + 2, "%s", equalizer_frames[frame]);
-                }
-                if (!ctx.paused && i == ctx.currently_playing_index) {
+                        mvwprintw(left_win, display_row, strlen(ctx.songnames.data[i]) + 2, "%s", equalizer_frames[frame]);
                 }
         }
 
-        // Refresh both windows
         wrefresh(left_win);
 }
 
@@ -374,6 +407,14 @@ static void resize_windows(void) {
                 exit(1);
         }
         scrollok(left_win, TRUE);
+
+        // Adjust scroll_offset to keep sel_songfps_index visible
+        size_t visible_rows = max_y - 2;
+        if (ctx.sel_songfps_index < ctx.scroll_offset) {
+                ctx.scroll_offset = ctx.sel_songfps_index;
+        } else if (ctx.sel_songfps_index >= ctx.scroll_offset + visible_rows) {
+                ctx.scroll_offset = ctx.sel_songfps_index - visible_rows + 1;
+        }
 }
 
 static void draw_windows(void) {

@@ -5,6 +5,7 @@
 
 enum {
         FT_NONOTIF = 1 << 0,
+        FT_RECURSIVE = 1 << 1,
 };
 
 extern size_t g_flags;
