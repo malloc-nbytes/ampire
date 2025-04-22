@@ -268,14 +268,24 @@ static void draw_currently_playing(void) {
         werase(right_win);
         box(right_win, 0, 0);
         int max_y, max_x;
-        getmaxyx(left_win, max_y, max_x);
+        getmaxyx(right_win, max_y, max_x);
         // Display currently playing info in right window (inside borders)
         if (ctx.currently_playing_index != -1) {
-                getmaxyx(right_win, max_y, max_x);
-                wattron(right_win, A_BLINK | A_REVERSE);
-                mvwprintw(right_win, 1, 1, "-=-=- Now Playing -=-=-");
-                wattroff(right_win, A_BLINK | A_REVERSE);
-                // Truncate song name to fit inside borders
+                // "Now Playing" animation
+                const char *base_text = "-=-=- Now Playing -=-=";
+                int base_len = strlen(base_text); // 22 characters
+                int display_width = max_x - 2; // Account for borders
+                if (display_width > base_len) display_width = base_len; // Cap at base text length
+                char display_text[display_width + 1];
+                int frame = (SDL_GetTicks() / 200) % base_len; // Cycle every 200ms
+                for (int i = 0; i < display_width; ++i) {
+                        display_text[i] = base_text[(frame + i) % base_len];
+                }
+                display_text[display_width] = '\0';
+                wattron(right_win, A_BOLD);
+                mvwprintw(right_win, 1, 1, "%s", display_text);
+                wattroff(right_win, A_BOLD);
+
                 mvwprintw(right_win, 3, 1, "%.*s", max_x - 2, ctx.songnames.data[ctx.currently_playing_index]);
 
                 Uint64 current_ticks = SDL_GetTicks();
@@ -299,12 +309,12 @@ static void draw_currently_playing(void) {
                                 mvwprintw(right_win, 6, strlen("History")+1, " [...%d]", ctx.history_idxs.len-5);
                         }
                         for (size_t i = start, j = 0; i < ctx.history_idxs.len; ++i, ++j) {
-                                if (i == ctx.history_idxs.len - 1) {
-                                        wattron(right_win, A_UNDERLINE);
-                                }
                                 mvwprintw(right_win, 7+j, 3, "%s", ctx.songnames.data[ctx.history_idxs.data[i]]);
-                                if (i == ctx.history_idxs.len - 1) {
-                                        wattroff(right_win, A_UNDERLINE);
+                                if (!ctx.paused && i == ctx.history_idxs.len - 1) {
+                                        const char *equalizer_frames[] = {"|   ", "||  ", "||| ", "||||"};
+                                        int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
+                                        int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
+                                        mvwprintw(right_win, 7+j, strlen(ctx.songnames.data[ctx.history_idxs.data[i]])+4, "%s", equalizer_frames[frame]);
                                 }
                         }
                 }
@@ -331,8 +341,13 @@ static void draw_song_list(void) {
                 if (i == ctx.sel_songfps_index) {
                         wattroff(left_win, A_REVERSE);
                 }
-                if (i == ctx.currently_playing_index) {
-                        mvwprintw(left_win, i + 1, strlen(ctx.songnames.data[i]) + 2, "*");
+                if (!ctx.paused && i == ctx.currently_playing_index) {
+                        const char *equalizer_frames[] = {"|", "/", "-", "\\"};
+                        int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
+                        int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
+                        mvwprintw(left_win, i+1, strlen(ctx.songnames.data[i]) + 2, "%s", equalizer_frames[frame]);
+                }
+                if (!ctx.paused && i == ctx.currently_playing_index) {
                 }
         }
 
@@ -396,7 +411,6 @@ static void handle_next_song(void) {
                 return;
         }
         Mix_HaltMusic();
-        //dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
 }
 
 static void handle_prev_song(void) {
