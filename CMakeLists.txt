@@ -4,6 +4,7 @@ project(cmus VERSION 1.0.0)
 # Define INSTALL_PREFIX and PROJECT_VERSION as cache variables
 set(INSTALL_PREFIX "" CACHE STRING "The installation prefix")
 set(PROJECT_VERSION ${PROJECT_VERSION} CACHE STRING "The project version")
+set(SDL_UNIX_CONSOLE_BUILD ON CACHE BOOL "Enable SDL Unix console build" FORCE)
 
 # Set default INSTALL_PREFIX if not specified
 if(NOT INSTALL_PREFIX)
