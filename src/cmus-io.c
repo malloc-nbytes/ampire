@@ -4,8 +4,9 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include "io.h"
+#include "cmus-io.h"
 #include "dyn_array.h"
+#include "cmus-flag.h"
 
 static int is_music_f(const char *fp) {
         size_t last = 0;
@@ -45,7 +46,7 @@ static void walk(const char *directory, Str_Array *arr) {
                 // Check if it's a regular file and a music file.
                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) {
                         dyn_array_append(*arr, strdup(path));
-                } else if (S_ISDIR(st.st_mode)) {
+                } else if (S_ISDIR(st.st_mode) && (g_flags & FT_RECURSIVE)) {
                         walk(path, arr);
                 }
         }

@@ -5,9 +5,9 @@
 #include "dyn_array.h"
 #include "ds/array.h"
 #include "cmus-utils.h"
-#include "io.h"
-#include "display.h"
-#include "flag.h"
+#include "cmus-io.h"
+#include "cmus-display.h"
+#include "cmus-flag.h"
 
 #define FLAG_1HY_HELP 'h'
 #define FLAG_1HY_RECURSIVE 'r'

@@ -8,8 +8,8 @@
 #include <ncurses.h>
 
 #include "tinyfiledialogs.h"
-#include "display.h"
-#include "flag.h"
+#include "cmus-display.h"
+#include "cmus-flag.h"
 
 #define Mix_GetError    SDL_GetError
 
@@ -332,9 +332,14 @@ static void draw_currently_playing(void) {
                 const char *base_text = "-=-=- Now Playing -=-=";
                 int base_len = strlen(base_text); // 22 characters
                 int display_width = max_x - 2; // Account for borders
-                if (display_width > base_len) display_width = base_len; // Cap at base text length
+                if (display_width < 0) {
+                        display_width = 0; // Minimum
+                }
+                if (display_width > base_len) {
+                        display_width = base_len; // Cap at base text length
+                }
                 char display_text[display_width + 1];
-                int frame = (SDL_GetTicks() / 200) % base_len; // Cycle every 200ms
+                int frame = (SDL_GetTicks() / 200) % base_len;
                 for (int i = 0; i < display_width; ++i) {
                         display_text[i] = base_text[(frame + i) % base_len];
                 }
