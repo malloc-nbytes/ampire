@@ -372,12 +372,18 @@ static void draw_currently_playing(void) {
                                 mvwprintw(right_win, 6, strlen("History")+1, " [...%d]", ctx.history_idxs.len-5);
                         }
                         for (size_t i = start, j = 0; i < ctx.history_idxs.len; ++i, ++j) {
+                                if (i != ctx.history_idxs.len - 1) {
+                                        wattron(right_win, A_DIM);
+                                }
                                 mvwprintw(right_win, 7+j, 3, "%s", ctx.songnames.data[ctx.history_idxs.data[i]]);
                                 if (!ctx.paused && i == ctx.history_idxs.len - 1) {
                                         const char *equalizer_frames[] = {"|   ", "||  ", "||| ", "||||"};
                                         int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
                                         int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
                                         mvwprintw(right_win, 7+j, strlen(ctx.songnames.data[ctx.history_idxs.data[i]])+4, "%s", equalizer_frames[frame]);
+                                }
+                                if (i != ctx.history_idxs.len - 1) {
+                                        wattroff(right_win, A_DIM);
                                 }
                         }
                 }
