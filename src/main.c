@@ -4,7 +4,7 @@
 #include "clap.h"
 #include "dyn_array.h"
 #include "ds/array.h"
-#include "utils.h"
+#include "cmus-utils.h"
 #include "io.h"
 #include "display.h"
 #include "flag.h"

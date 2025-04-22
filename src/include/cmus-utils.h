@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include <stdio.h>
+#include <stdbool.h>
 
 #define err_wargs(msg, ...)                                             \
     do {                                                                \
