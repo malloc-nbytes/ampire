@@ -36,6 +36,20 @@ set(SDL3_STATIC OFF CACHE BOOL "Build SDL3 as a static library" FORCE)
 # Add SDL3_mixer submodule
 add_subdirectory(external/SDL3_mixer)
 
+# Install SDL3 shared library
+install(TARGETS SDL3-shared
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+)
+
+# Install SDL3_mixer shared library
+install(TARGETS SDL3_mixer-shared
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+)
+
 # Ensure SDL3_mixer is built as a shared library
 set(SDL3MIXER_SHARED ON CACHE BOOL "Build SDL3_mixer as a shared library" FORCE)
 set(SDL3MIXER_STATIC OFF CACHE BOOL "Build SDL3_mixer as a static library" FORCE)
@@ -48,6 +62,8 @@ file(GLOB_RECURSE SOURCES
 
 # Add executable
 add_executable(cmus ${SOURCES})
+
+target_link_libraries(cmus PRIVATE SDL3::SDL3-shared SDL3_mixer::SDL3_mixer-shared ncurses)
 
 # Link SDL3 and SDL3_mixer to the executable
 target_link_libraries(cmus PRIVATE SDL3::SDL3 SDL3_mixer::SDL3_mixer ncurses)
