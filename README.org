@@ -10,13 +10,13 @@ it may not work properly.
 
 Perform the following the compile =cmus=.
 
-1. First clone the repository recursively.
+- First clone the repository recursively.
 
 #+begin_src bash
   git clone https://www.github.com/malloc-nbytes/cmus --recursive
 #+end_src
 
-2. Use =Cmake= to build the project Makefile(s)
+- Use =Cmake= to build the project Makefile(s)
 
 #+begin_src bash
   cd cmus
@@ -26,7 +26,7 @@ Perform the following the compile =cmus=.
   sudo make install
 #+end_src
 
-3. If you run =cmus= but it has trouble linking during runtime, do
+- If you run =cmus= but it has trouble linking during runtime, do
 
 #+begin_src bash
   sudo ldconfig
