@@ -33,6 +33,12 @@ add_subdirectory(external/SDL3)
 set(SDL3_SHARED ON CACHE BOOL "Build SDL3 as a shared library" FORCE)
 set(SDL3_STATIC OFF CACHE BOOL "Build SDL3 as a static library" FORCE)
 
+set(SDLMIXER_VENDORED ON CACHE BOOL "Use vendored libraries for SDL3_mixer" FORCE)
+set(SDLMIXER_VORBIS_STB ON CACHE BOOL "Enable OGG Vorbis support with stb_vorbis" FORCE)
+set(SDLMIXER_VORBIS_VORBIS OFF CACHE BOOL "Disable libvorbis support to avoid conflicts" FORCE)
+set(SDLMIXER_VORBIS_TREMOR OFF CACHE BOOL "Disable Tremor support to avoid conflicts" FORCE)
+set(SDLMIXER_OGG ON CACHE BOOL "Enable OGG music support" FORCE)
+
 # Add SDL3_mixer submodule
 add_subdirectory(external/SDL3_mixer)
 
@@ -63,10 +69,8 @@ file(GLOB_RECURSE SOURCES
 # Add executable
 add_executable(cmus ${SOURCES})
 
-target_link_libraries(cmus PRIVATE SDL3::SDL3-shared SDL3_mixer::SDL3_mixer-shared ncurses)
-
 # Link SDL3 and SDL3_mixer to the executable
-target_link_libraries(cmus PRIVATE SDL3::SDL3 SDL3_mixer::SDL3_mixer ncurses)
+target_link_libraries(cmus PRIVATE SDL3::SDL3-shared SDL3_mixer::SDL3_mixer-shared ncurses)
 
 # Install targets
 install(TARGETS cmus DESTINATION bin)
