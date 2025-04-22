@@ -16,6 +16,7 @@
 
 static struct {
         const Str_Array *songfps;
+        Str_Array songnames;
         size_t sel_songfps_index;
         int sel_fst_song;
         int paused;
@@ -26,6 +27,7 @@ static struct {
         Uint64 pause_start;      // Time when pause began
 } ctx = {
         .songfps = NULL,
+        .songnames = {0},
         .sel_songfps_index = 0,
         .sel_fst_song = 0,
         .paused = 0,
@@ -62,7 +64,7 @@ static void play_music(const char *song) {
                 exit(1);
         }
 
-        // Define explicit audio format to minimize ALSA adjustments
+        // Audio format to minimize ALSA adjustments
         SDL_AudioSpec desired = {
                 .freq = 44100,           // 44.1 kHz
                 .format = SDL_AUDIO_S16,  // 16-bit signed audio
@@ -82,7 +84,6 @@ static void play_music(const char *song) {
                 exit(1);
         }
 
-        // Restore stderr
         if (stderr != orig_stderr) fclose(stderr);
         stderr = orig_stderr;
 
@@ -128,7 +129,7 @@ static void start_song(void) {
 
 static void music_finished(void) {
         ctx.currently_playing_index = (ctx.currently_playing_index + 1) % ctx.songfps->len;
-        // ctx.sel_songfps_index = ctx.currently_playing_index;
+        ctx.sel_songfps_index = ctx.currently_playing_index;
         Mix_HaltMusic();
         start_song();
 }
@@ -138,11 +139,40 @@ static void pause_audio(void) {
         ctx.paused = !ctx.paused;
         Mix_PauseAudio(ctx.paused);
         if (ctx.paused) {
-                ctx.pause_start = SDL_GetTicks(); // Start of pause
+                // Start of pause
+                ctx.pause_start = SDL_GetTicks();
         } else {
-                ctx.paused_ticks += SDL_GetTicks() - ctx.pause_start; // Add pause duration
+                // Add pause duration
+                ctx.paused_ticks += SDL_GetTicks() - ctx.pause_start;
                 ctx.pause_start = 0;
         }
+}
+
+static void seek_music(double seconds) {
+        if (ctx.currently_playing_index == -1 || !ctx.current_music || !ctx.sel_fst_song) {
+                return;
+        }
+
+        // Position in seconds
+        Uint64 current_ticks = SDL_GetTicks();
+        Uint64 elapsed_ms = ctx.paused ? (ctx.pause_start - ctx.start_ticks - ctx.paused_ticks)
+                : (current_ticks - ctx.start_ticks - ctx.paused_ticks);
+        double current_position = elapsed_ms / 1000.;
+
+        double new_position = current_position + seconds;
+
+        if (new_position < 0) {
+                new_position = 0;
+        }
+
+        // Update playback
+        if (Mix_SetMusicPosition(new_position) < 0) {
+                fprintf(stderr, "Failed to seek music: %s\n", Mix_GetError());
+                return;
+        }
+
+        // Reflect the new position
+        ctx.start_ticks = SDL_GetTicks() - (Uint64)(new_position * 1000) - ctx.paused_ticks;
 }
 
 static void handle_key_down(void) {
@@ -161,13 +191,21 @@ static void handle_key_up(void) {
         }
 }
 
+static void handle_key_right(void) {
+        seek_music(10.0);
+}
+
+static void handle_key_left(void) {
+        seek_music(-10.0);
+}
+
 static void init_ncurses(void) {
         initscr();
         raw();
         keypad(stdscr, TRUE);
         noecho();
         curs_set(0);
-        timeout(500);
+        timeout(100);
 }
 
 static void show_song_list(void) {
@@ -176,7 +214,7 @@ static void show_song_list(void) {
                 if (i == ctx.sel_songfps_index) {
                         attron(A_REVERSE);
                 }
-                mvprintw(i, 0, "%s\n", ctx.songfps->data[i]);
+                mvprintw(i, 0, "%s\n", ctx.songnames.data[i]);
                 if (i == ctx.sel_songfps_index) {
                         attroff(A_REVERSE);
                 }
@@ -185,7 +223,6 @@ static void show_song_list(void) {
                 printw("=======\n");
                 printw("Now Playing: %s\n", ctx.songfps->data[ctx.currently_playing_index]);
 
-                // Calculate time played
                 Uint64 current_ticks = SDL_GetTicks();
                 Uint64 elapsed_ms = ctx.paused ? (ctx.pause_start - ctx.start_ticks - ctx.paused_ticks)
                         : (current_ticks - ctx.start_ticks - ctx.paused_ticks);
@@ -198,8 +235,22 @@ static void show_song_list(void) {
         refresh();
 }
 
+char *get_song_name(char *path) {
+        size_t sl = 0;
+        for (size_t i = 0; path[i]; ++i) {
+                if (path[i] == '/') sl = i;
+        }
+        return path+sl+1;
+}
+
+// Does not take ownership of songfps
 void run(const Str_Array *songfps) {
         ctx.songfps = songfps;
+        dyn_array_init_type(ctx.songnames);
+
+        for (size_t i = 0; i < songfps->len; ++i) {
+                dyn_array_append(ctx.songnames, strdup(get_song_name(ctx.songfps->data[i])));
+        }
 
         SDL_SetLogPriorities(SDL_LOG_PRIORITY_ERROR);
 
@@ -224,6 +275,12 @@ void run(const Str_Array *songfps) {
                 case KEY_DOWN: {
                         handle_key_down();
                 } break;
+                case KEY_LEFT: {
+                        handle_key_left();
+                } break;
+                case KEY_RIGHT: {
+                        handle_key_right();
+                } break;
                 case SPACE: {
                         pause_audio();
                 } break;
@@ -234,5 +291,9 @@ void run(const Str_Array *songfps) {
                 }
         }
  done:
-        (void)0x0;
+        for (size_t i = 0; i < ctx.songnames.len; ++i) {
+                free(ctx.songnames.data[i]);
+        }
+
+        dyn_array_free(ctx.songnames);
 }
