@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <time.h>
+#include <regex.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3_mixer/SDL_mixer.h>
@@ -38,6 +39,7 @@ static struct {
         Uint64 start_ticks;      // Time when song started
         Uint64 paused_ticks;     // Accumulated paused time
         Uint64 pause_start;      // Time when pause began
+        char *prevsearch;
 } ctx = {
         .songfps = NULL,
         .history_idxs = {0},
@@ -52,6 +54,7 @@ static struct {
         .start_ticks = 0,
         .paused_ticks = 0,
         .pause_start = 0,
+        .prevsearch = NULL,
 };
 
 static WINDOW *left_win;  // Window for song list
@@ -69,6 +72,40 @@ static void cleanup(void) {
         Mix_CloseAudio();
         endwin();
         SDL_Quit();
+}
+
+int regex(const char *pattern, const char *s) {
+        regex_t regex;
+        int reti;
+
+        reti = regcomp(&regex, pattern, REG_ICASE);
+        if (reti) {
+                perror("regex");
+                return 0;
+        }
+
+        reti = regexec(&regex, s, 0, NULL, 0);
+
+        regfree(&regex);
+
+        if (!reti) return 1;
+        else return 0;
+}
+
+static void adjust_scroll_offset(void) {
+        if (ctx.songfps->len == 0) return;
+
+        int max_y, max_x;
+        getmaxyx(left_win, max_y, max_x);
+        size_t visible_rows = max_y - 2; // Account for borders
+
+        if (ctx.sel_songfps_index < ctx.scroll_offset) {
+                // Selection is above visible area
+                ctx.scroll_offset = ctx.sel_songfps_index;
+        } else if (ctx.sel_songfps_index >= ctx.scroll_offset + visible_rows) {
+                // Selection is below visible area
+                ctx.scroll_offset = ctx.sel_songfps_index - visible_rows + 1;
+        }
 }
 
 // Format time in seconds to MM:SS
@@ -208,6 +245,19 @@ static void seek_music(double seconds) {
         ctx.start_ticks = SDL_GetTicks() - (Uint64)(new_position * 1000) - ctx.paused_ticks;
 }
 
+static void handle_key_up(void) {
+        if (ctx.songfps->len == 0) return;
+
+        // Move selection up, wrapping to the end if at the top
+        if (ctx.sel_songfps_index > 0) {
+                ctx.sel_songfps_index--;
+        } else {
+                ctx.sel_songfps_index = ctx.songfps->len - 1;
+        }
+
+        // Adjust scroll offset
+        adjust_scroll_offset();
+}
 
 static void handle_key_down(void) {
         if (ctx.songfps->len == 0) return;
@@ -219,42 +269,8 @@ static void handle_key_down(void) {
                 ctx.sel_songfps_index = 0;
         }
 
-        // Adjust scroll offset to keep selection visible
-        int max_y, max_x;
-        getmaxyx(left_win, max_y, max_x);
-        size_t visible_rows = max_y - 2; // Account for borders
-
-        if (ctx.sel_songfps_index < ctx.scroll_offset) {
-                // Selection moved above visible area (e.g., wrapped to end)
-                ctx.scroll_offset = ctx.sel_songfps_index;
-        } else if (ctx.sel_songfps_index >= ctx.scroll_offset + visible_rows) {
-                // Selection moved below visible area
-                ctx.scroll_offset = ctx.sel_songfps_index - visible_rows + 1;
-        }
-}
-
-static void handle_key_up(void) {
-        if (ctx.songfps->len == 0) return;
-
-        // Move selection up, wrapping to the end if at the top
-        if (ctx.sel_songfps_index > 0) {
-                ctx.sel_songfps_index--;
-        } else {
-                ctx.sel_songfps_index = ctx.songfps->len - 1;
-        }
-
-        // Adjust scroll offset to keep selection visible
-        int max_y, max_x;
-        getmaxyx(left_win, max_y, max_x);
-        size_t visible_rows = max_y - 2; // Account for borders
-
-        if (ctx.sel_songfps_index < ctx.scroll_offset) {
-                // Selection moved above visible area, scroll up
-                ctx.scroll_offset = ctx.sel_songfps_index;
-        } else if (ctx.sel_songfps_index >= ctx.scroll_offset + visible_rows) {
-                // Selection moved below visible area, scroll down
-                ctx.scroll_offset = ctx.sel_songfps_index - visible_rows + 1;
-        }
+        // Adjust scroll offset
+        adjust_scroll_offset();
 }
 
 static void handle_key_right(void) {
@@ -441,9 +457,10 @@ static void handle_adv_type(void) {
         // selecting one first.
         if (!ctx.sel_fst_song) {
                 ctx.sel_fst_song = 1;
-                ctx.currently_playing_index = ctx.sel_songfps_index = (size_t)rand()%ctx.songfps->len;
+                ctx.currently_playing_index = ctx.sel_songfps_index = (size_t)rand() % ctx.songfps->len;
                 start_song();
                 dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
+                adjust_scroll_offset();
         }
 }
 
@@ -451,7 +468,26 @@ static void handle_next_song(void) {
         if (ctx.currently_playing_index == -1 || !ctx.current_music || !ctx.sel_fst_song) {
                 return;
         }
+
+        // Select next song based on playback mode
+        size_t r = 0;
+        if (ctx.mat == MAT_NORMAL) {
+                r = (ctx.currently_playing_index + 1) % ctx.songfps->len;
+        } else if (ctx.mat == MAT_SHUFFLE) {
+                while ((r = (size_t)rand() % ctx.songfps->len) == ctx.currently_playing_index);
+        } else if (ctx.mat == MAT_LOOP) {
+                r = ctx.currently_playing_index;
+        } else {
+                assert(0);
+        }
+
+        ctx.currently_playing_index = ctx.sel_songfps_index = r;
+
         Mix_HaltMusic();
+        start_song();
+
+        // Adjust scroll offset to keep selection visible
+        adjust_scroll_offset();
 }
 
 static void handle_prev_song(void) {
@@ -465,13 +501,107 @@ static void handle_prev_song(void) {
         int time_played = elapsed_ms / 1000;
 
         if (time_played > 1 || ctx.history_idxs.len <= 1) {
-                ctx.sel_songfps_index = ctx.currently_playing_index = dyn_array_at(ctx.history_idxs, ctx.history_idxs.len-1);
+                // Restart current song
+                ctx.sel_songfps_index = ctx.currently_playing_index = dyn_array_at(ctx.history_idxs, ctx.history_idxs.len - 1);
                 start_song();
         } else if (ctx.history_idxs.len > 1) {
-                ctx.sel_songfps_index = ctx.currently_playing_index = dyn_array_at(ctx.history_idxs, ctx.history_idxs.len-2);
+                // Play previous song from history
+                ctx.sel_songfps_index = ctx.currently_playing_index = dyn_array_at(ctx.history_idxs, ctx.history_idxs.len - 2);
                 start_song();
-                dyn_array_rm_at(ctx.history_idxs, ctx.history_idxs.len-1);
+                dyn_array_rm_at(ctx.history_idxs, ctx.history_idxs.len - 1);
         }
+
+        adjust_scroll_offset();
+}
+
+static char *get_search(void) {
+        int max_y, max_x;
+        getmaxyx(stdscr, max_y, max_x);
+
+        // Define dimensions (3 rows x 30 columns, including borders)
+        int win_height = 3;
+        int win_width = 30;
+        int start_y = (max_y - win_height) / 2; // Center vertically
+        int start_x = (max_x - win_width) / 2;  // Center horizontally
+
+        WINDOW *search_win = newwin(win_height, win_width, start_y, start_x);
+        if (!search_win) {
+                return NULL; // Failed to create window
+        }
+
+        box(search_win, 0, 0);
+
+        // 27 chars max to fit inside borders with padding
+        char input[28] = {0}; // +1 for null
+        size_t input_len = 0;
+
+        // Enable input settings
+        keypad(search_win, TRUE);
+        nodelay(search_win, FALSE); // Block for input (override timeout(100))
+        echo();
+
+        int ch;
+        while (1) {
+                mvwprintw(search_win, 1, 1, "%-*s", win_width - 2, input); // Pad to clear old text
+                wrefresh(search_win);
+
+                ch = wgetch(search_win);
+
+                if (ch == ENTER) {
+                        delwin(search_win);
+                        noecho();
+                        return input_len > 0 ? strdup(input) : strdup("");
+                } else if (ch == ESCAPE || ch == CTRL('c')) {
+                        // Cancel input
+                        delwin(search_win);
+                        noecho();
+                        return NULL;
+                } else if (ch == BACKSPACE || ch == 127) {
+                        // Delete last character
+                        if (input_len > 0) {
+                                input[--input_len] = '\0';
+                        }
+                } else if (ch >= 32 && ch <= 126 && input_len < sizeof(input) - 1) {
+                        // Append printable character
+                        input[input_len++] = ch;
+                        input[input_len] = '\0';
+                }
+                // Ignore other characters (e.g., arrow keys, function keys)
+        }
+}
+
+static void handle_search(size_t startfrom, int rev, char *prevsearch) {
+        char *query = NULL;
+        if (prevsearch) {
+                query = prevsearch;
+        } else {
+                query = get_search();
+                if (!query) return;
+                ctx.prevsearch = strdup(query);
+        }
+        ssize_t found = -1;
+        if (rev) {
+                for (int i = (int)startfrom; i >= 0; --i) {
+                        if (regex(query, ctx.songnames.data[i])) {
+                                found = i;
+                                break;
+                        }
+                }
+        } else {
+                for (size_t i = startfrom; i < ctx.songnames.len; ++i) {
+                        if (regex(query, ctx.songnames.data[i])) {
+                                found = i;
+                                break;
+                        }
+                }
+        }
+        if (found == -1) {
+                tinyfd_notifyPopup("[cmus]: Could not find song", query, "warning");
+                return;
+        }
+
+        ctx.sel_songfps_index = found;
+        adjust_scroll_offset();
 }
 
 // Does not take ownership of songfps
@@ -537,6 +667,19 @@ void run(const Str_Array *songfps) {
                 case ',':
                 case '<': {
                         handle_prev_song();
+                } break;
+                case 'n': {
+                        if (ctx.sel_songfps_index < ctx.songnames.len-1) {
+                                handle_search(ctx.sel_songfps_index+1, 0, ctx.prevsearch);
+                        }
+                } break;
+                case 'N': {
+                        if (ctx.sel_songfps_index > 0) {
+                                handle_search(ctx.sel_songfps_index-1, 1, ctx.prevsearch);
+                        }
+                } break;
+                case '/': {
+                        handle_search(0, 0, NULL);
                 } break;
                 case 'f': {
                         char const *const filter_patterns[] = {"*.wav", "*.ogg", "*.mp3"};
