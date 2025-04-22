@@ -7,9 +7,13 @@
 #include "utils.h"
 #include "io.h"
 #include "display.h"
+#include "flag.h"
 
 #define FLAG_1HY_HELP 'h'
 #define FLAG_2HY_HELP "help"
+#define FLAG_2HY_NONOTIF "no-notif"
+
+size_t g_flags = 0x0;
 
 void usage(void) {
         printf("Usage: cmus <dir> [options...]\n");
@@ -33,6 +37,8 @@ int main(int argc, char **argv) {
                         usage();
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_HELP)) {
                         usage();
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_NONOTIF)) {
+                        g_flags |= FT_NONOTIF;
                 } else if (arg.hyphc > 0) {
                         err_wargs("invalid flag: %s", arg.start);
                 } else {

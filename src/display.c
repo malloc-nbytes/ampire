@@ -6,7 +6,9 @@
 #include <SDL3_mixer/SDL_mixer.h>
 #include <ncurses.h>
 
+#include "tinyfiledialogs.h"
 #include "display.h"
+#include "flag.h"
 
 #define Mix_GetError    SDL_GetError
 
@@ -25,6 +27,7 @@ typedef enum {
 static struct {
         const Str_Array *songfps;
         Str_Array songnames;
+        Size_T_Array history_idxs;
         size_t sel_songfps_index;
         int sel_fst_song;
         int paused;
@@ -36,6 +39,7 @@ static struct {
         Uint64 pause_start;      // Time when pause began
 } ctx = {
         .songfps = NULL,
+        .history_idxs = {0},
         .songnames = {0},
         .sel_songfps_index = 0,
         .sel_fst_song = 0,
@@ -135,6 +139,10 @@ static void start_song(void) {
         play_music(ctx.songfps->data[ctx.sel_songfps_index]);
         ctx.paused = 0;
 
+        if ((g_flags & FT_NONOTIF) == 0) {
+                tinyfd_notifyPopup("[cmus]: Up Next", ctx.songnames.data[ctx.sel_songfps_index], "info");
+        }
+
         ctx.start_ticks = SDL_GetTicks(); // Record start time
         ctx.paused_ticks = 0;
         ctx.pause_start = 0;
@@ -152,6 +160,7 @@ static void music_finished(void) {
                 r = ctx.currently_playing_index;
         } else { assert(0); }
         ctx.currently_playing_index = ctx.sel_songfps_index = r;
+        dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
         Mix_HaltMusic();
         start_song();
 }
@@ -263,9 +272,11 @@ static void draw_currently_playing(void) {
         // Display currently playing info in right window (inside borders)
         if (ctx.currently_playing_index != -1) {
                 getmaxyx(right_win, max_y, max_x);
+                wattron(right_win, A_BLINK | A_REVERSE);
                 mvwprintw(right_win, 1, 1, "-=-=- Now Playing -=-=-");
+                wattroff(right_win, A_BLINK | A_REVERSE);
                 // Truncate song name to fit inside borders
-                mvwprintw(right_win, 2, 1, "%.*s", max_x - 2, ctx.songnames.data[ctx.currently_playing_index]);
+                mvwprintw(right_win, 3, 1, "%.*s", max_x - 2, ctx.songnames.data[ctx.currently_playing_index]);
 
                 Uint64 current_ticks = SDL_GetTicks();
                 Uint64 elapsed_ms = ctx.paused ? (ctx.pause_start - ctx.start_ticks - ctx.paused_ticks)
@@ -275,13 +286,30 @@ static void draw_currently_playing(void) {
                 char time_str[16];
                 format_time(time_played, time_str, sizeof(time_str));
 
-                mvwprintw(right_win, 4, 1, ctx.paused ? "Paused" : "Playing: [%s]", time_str);
+                mvwprintw(right_win, 4, 1, ctx.paused ? "Paused" : "Elapsed: [%s]", time_str);
 
                 mvwprintw(right_win, 5, 1, "Advance: %s",
                           ctx.mat == MAT_NORMAL ? "Normal" :
                           ctx.mat == MAT_SHUFFLE ? "Shuffle" : "Loop");
+
+                if (ctx.history_idxs.len > 0) {
+                        mvwprintw(right_win, 6, 1, "History");
+                        size_t start = ctx.history_idxs.len > 5 ? ctx.history_idxs.len - 5 : 0;
+                        if (start != 0) {
+                                mvwprintw(right_win, 6, strlen("History")+1, " [...%d]", ctx.history_idxs.len-5);
+                        }
+                        for (size_t i = start, j = 0; i < ctx.history_idxs.len; ++i, ++j) {
+                                if (i == ctx.history_idxs.len - 1) {
+                                        wattron(right_win, A_UNDERLINE);
+                                }
+                                mvwprintw(right_win, 7+j, 3, "%s", ctx.songnames.data[ctx.history_idxs.data[i]]);
+                                if (i == ctx.history_idxs.len - 1) {
+                                        wattroff(right_win, A_UNDERLINE);
+                                }
+                        }
+                }
         } else {
-                mvwprintw(right_win, 1, 1, "No song playing");
+                mvwprintw(right_win, 1, 1, "No Song Playing");
         }
         wrefresh(right_win);
 }
@@ -351,6 +379,44 @@ static void handle_adv_type(void) {
         else if (ctx.mat == MAT_SHUFFLE) { ctx.mat = MAT_LOOP; }
         else if (ctx.mat == MAT_LOOP) { ctx.mat = MAT_NORMAL; }
         else { assert(0); }
+
+        // Handle case where no first song has been selected.
+        // This allows to just play a random song without
+        // selecting one first.
+        if (!ctx.sel_fst_song) {
+                ctx.sel_fst_song = 1;
+                ctx.currently_playing_index = ctx.sel_songfps_index = (size_t)rand()%ctx.songfps->len;
+                start_song();
+                dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
+        }
+}
+
+static void handle_next_song(void) {
+        if (ctx.currently_playing_index == -1 || !ctx.current_music || !ctx.sel_fst_song) {
+                return;
+        }
+        Mix_HaltMusic();
+        //dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
+}
+
+static void handle_prev_song(void) {
+        if (ctx.currently_playing_index == -1 || !ctx.current_music || !ctx.sel_fst_song) {
+                return;
+        }
+
+        Uint64 current_ticks = SDL_GetTicks();
+        Uint64 elapsed_ms = ctx.paused ? (ctx.pause_start - ctx.start_ticks - ctx.paused_ticks)
+                : (current_ticks - ctx.start_ticks - ctx.paused_ticks);
+        int time_played = elapsed_ms / 1000;
+
+        if (time_played > 1 || ctx.history_idxs.len <= 1) {
+                ctx.sel_songfps_index = ctx.currently_playing_index = dyn_array_at(ctx.history_idxs, ctx.history_idxs.len-1);
+                start_song();
+        } else if (ctx.history_idxs.len > 1) {
+                ctx.sel_songfps_index = ctx.currently_playing_index = dyn_array_at(ctx.history_idxs, ctx.history_idxs.len-2);
+                start_song();
+                dyn_array_rm_at(ctx.history_idxs, ctx.history_idxs.len-1);
+        }
 }
 
 // Does not take ownership of songfps
@@ -358,10 +424,13 @@ void run(const Str_Array *songfps) {
         srand((unsigned int)time(NULL));
 
         ctx.songfps = songfps;
+
         dyn_array_init_type(ctx.songnames);
+        dyn_array_init_type(ctx.history_idxs);
 
         for (size_t i = 0; i < songfps->len; ++i) {
-                dyn_array_append(ctx.songnames, strdup(get_song_name(ctx.songfps->data[i])));
+                dyn_array_append(ctx.songnames,
+                                 strdup(get_song_name(ctx.songfps->data[i])));
         }
 
         SDL_SetLogPriorities(SDL_LOG_PRIORITY_ERROR);
@@ -380,6 +449,8 @@ void run(const Str_Array *songfps) {
                 draw_windows();
                 ch = getch();
                 switch (ch) {
+                case 'q':
+                case 'Q':
                 case CTRL('q'): goto done;
                 case CTRL('l'): {
                         resize_windows();
@@ -404,8 +475,25 @@ void run(const Str_Array *songfps) {
                 case 'a': {
                         handle_adv_type();
                 } break;
+                case '.':
+                case '>': {
+                        handle_next_song();
+                } break;
+                case ',':
+                case '<': {
+                        handle_prev_song();
+                } break;
+                case 'f': {
+                        char const *const filter_patterns[] = {"*.wav", "*.ogg", "*.mp3"};
+                        char *path = tinyfd_openFileDialog("Select a directory", ".",
+                                                           sizeof(filter_patterns)/sizeof(*filter_patterns),
+                                                           filter_patterns,
+                                                           "Music Files", 1);
+                        assert(0 && "selecting files is unimplemented");
+                } break;
                 case ENTER: {
                         start_song();
+                        dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
                 } break;
                 default: (void)0x0;
                 }
