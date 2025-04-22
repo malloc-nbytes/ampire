@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3_mixer/SDL_mixer.h>
@@ -14,12 +16,19 @@
 #define ENTER 10
 #define SPACE 32
 
+typedef enum {
+        MAT_NORMAL,
+        MAT_SHUFFLE,
+        MAT_LOOP,
+} Music_Adv_Type;
+
 static struct {
         const Str_Array *songfps;
         Str_Array songnames;
         size_t sel_songfps_index;
         int sel_fst_song;
         int paused;
+        Music_Adv_Type mat;
         ssize_t currently_playing_index;
         Mix_Music *current_music;
         Uint64 start_ticks;      // Time when song started
@@ -31,6 +40,7 @@ static struct {
         .sel_songfps_index = 0,
         .sel_fst_song = 0,
         .paused = 0,
+        .mat = MAT_NORMAL,
         .currently_playing_index = -1,
         .current_music = NULL,
         .start_ticks = 0,
@@ -40,13 +50,6 @@ static struct {
 
 static WINDOW *left_win;  // Window for song list
 static WINDOW *right_win; // Window for currently playing info
-
-/* typedef struct { */
-/*         struct { */
-/*                 WINDOW *win; */
-/*                 size_t y, x; */
-/*         } wins[4]; */
-/* } Screen; */
 
 static void cleanup(void) {
         if (left_win) delwin(left_win);
@@ -140,8 +143,15 @@ static void start_song(void) {
 }
 
 static void music_finished(void) {
-        ctx.currently_playing_index = (ctx.currently_playing_index + 1) % ctx.songfps->len;
-        ctx.sel_songfps_index = ctx.currently_playing_index;
+        size_t r = 0;
+        if (ctx.mat == MAT_NORMAL) {
+                r = (ctx.currently_playing_index + 1) % ctx.songfps->len;
+        } else if (ctx.mat == MAT_SHUFFLE) {
+                while ((r = (size_t)rand()%ctx.songfps->len) == ctx.currently_playing_index);
+        } else if (ctx.mat == MAT_LOOP) {
+                r = ctx.currently_playing_index;
+        } else { assert(0); }
+        ctx.currently_playing_index = ctx.sel_songfps_index = r;
         Mix_HaltMusic();
         start_song();
 }
@@ -253,7 +263,7 @@ static void draw_currently_playing(void) {
         // Display currently playing info in right window (inside borders)
         if (ctx.currently_playing_index != -1) {
                 getmaxyx(right_win, max_y, max_x);
-                mvwprintw(right_win, 1, 1, "Now Playing:");
+                mvwprintw(right_win, 1, 1, "-=-=- Now Playing -=-=-");
                 // Truncate song name to fit inside borders
                 mvwprintw(right_win, 2, 1, "%.*s", max_x - 2, ctx.songnames.data[ctx.currently_playing_index]);
 
@@ -264,9 +274,12 @@ static void draw_currently_playing(void) {
 
                 char time_str[16];
                 format_time(time_played, time_str, sizeof(time_str));
-                mvwprintw(right_win, 4, 1, "Time: %s", time_str);
 
-                mvwprintw(right_win, 6, 1, ctx.paused ? "Paused" : "Playing");
+                mvwprintw(right_win, 4, 1, ctx.paused ? "Paused" : "Playing: [%s]", time_str);
+
+                mvwprintw(right_win, 5, 1, "Advance: %s",
+                          ctx.mat == MAT_NORMAL ? "Normal" :
+                          ctx.mat == MAT_SHUFFLE ? "Shuffle" : "Loop");
         } else {
                 mvwprintw(right_win, 1, 1, "No song playing");
         }
@@ -274,10 +287,8 @@ static void draw_currently_playing(void) {
 }
 
 static void draw_song_list(void) {
-        // Clear both windows
         werase(left_win);
 
-        // Draw borders around both windows
         box(left_win, 0, 0);
 
         // Display song list in left window (inside borders)
@@ -291,6 +302,9 @@ static void draw_song_list(void) {
                 mvwprintw(left_win, i + 1, 1, "%.*s", max_x - 2, ctx.songnames.data[i]);
                 if (i == ctx.sel_songfps_index) {
                         wattroff(left_win, A_REVERSE);
+                }
+                if (i == ctx.currently_playing_index) {
+                        mvwprintw(left_win, i + 1, strlen(ctx.songnames.data[i]) + 2, "*");
                 }
         }
 
@@ -325,15 +339,24 @@ static void draw_windows(void) {
 }
 
 static char *get_song_name(char *path) {
-        size_t sl = 0;
+        ssize_t sl = -1;
         for (size_t i = 0; path[i]; ++i) {
                 if (path[i] == '/') sl = i;
         }
-        return path+sl+1;
+        return sl != -1 ? path+sl+1 : path;
+}
+
+static void handle_adv_type(void) {
+        if (ctx.mat == MAT_NORMAL) { ctx.mat = MAT_SHUFFLE; }
+        else if (ctx.mat == MAT_SHUFFLE) { ctx.mat = MAT_LOOP; }
+        else if (ctx.mat == MAT_LOOP) { ctx.mat = MAT_NORMAL; }
+        else { assert(0); }
 }
 
 // Does not take ownership of songfps
 void run(const Str_Array *songfps) {
+        srand((unsigned int)time(NULL));
+
         ctx.songfps = songfps;
         dyn_array_init_type(ctx.songnames);
 
@@ -377,6 +400,9 @@ void run(const Str_Array *songfps) {
                 } break;
                 case SPACE: {
                         pause_audio();
+                } break;
+                case 'a': {
+                        handle_adv_type();
                 } break;
                 case ENTER: {
                         start_song();

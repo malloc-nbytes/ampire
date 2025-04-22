@@ -33,7 +33,7 @@ static void walk(const char *directory, Str_Array *arr) {
                         continue;
 
                 // Build full path to file
-                char path[1024];
+                char path[1024] = {0};
                 snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name);
 
                 struct stat st;
@@ -42,7 +42,7 @@ static void walk(const char *directory, Str_Array *arr) {
                         continue;
                 }
 
-                // Check if it's a regular file
+                // Check if it's a regular file and a music file.
                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) {
                         dyn_array_append(*arr, strdup(path));
                 }
