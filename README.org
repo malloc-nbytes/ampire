@@ -6,6 +6,12 @@ it may not work properly.
 =cmus= is a simple music player that is ran in the terminal. It supports
 =.mp3=, =.ogg=, and =.wav=.
 
+** Dependencies
+
+- SDL3 <vendored>
+- SDL3_mixer <vendored>
+- ncurses
+
 ** Compiling and Installing
 
 Perform the following the compile =cmus=.
@@ -33,3 +39,26 @@ Perform the following the compile =cmus=.
 #+end_src
 
 then try running it again.
+
+- Run =cmus -h= to view all help information.
+
+** Controls
+
+| Keybinds      | Action                                                    |
+|---------------+-----------------------------------------------------------|
+| [DOWN], [j]   | Move down in the song selection                           |
+| [UP], [k]     | Move up in the song selection                             |
+| [RIGHT], [l]  | Seek forward in the music 10 seconds                      |
+| [LEFT], [h]   | Seek backward in the music 10 seconds                     |
+| [.], [>], [L] | Next song                                                 |
+| [,], [<], [H] | Previous song from history                                |
+| [a]           | Toggle song advancement between normal, shuffle, and loop |
+| [SPACE]       | Pause / play                                              |
+| [f]           | Open a file dialogue (unimplemented)                      |
+| [\/]          | Search the song list with regex                           |
+| [n]           | Search for next match                                     |
+| [N]           | Search for previous match                                 |
+| [ENTER]       | Play song from song list                                  |
+| [CTRL+l]      | Redraw screen (if you resize the screen, run this)        |
+| [CTRL+q]      | Quit                                                      |
+
