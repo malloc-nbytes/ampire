@@ -38,7 +38,19 @@ static struct {
         .pause_start = 0,
 };
 
+static WINDOW *left_win;  // Window for song list
+static WINDOW *right_win; // Window for currently playing info
+
+/* typedef struct { */
+/*         struct { */
+/*                 WINDOW *win; */
+/*                 size_t y, x; */
+/*         } wins[4]; */
+/* } Screen; */
+
 static void cleanup(void) {
+        if (left_win) delwin(left_win);
+        if (right_win) delwin(right_win);
         Mix_HookMusicFinished(NULL);
         Mix_HaltMusic();
         if (ctx.current_music) {
@@ -206,22 +218,44 @@ static void init_ncurses(void) {
         noecho();
         curs_set(0);
         timeout(100);
+
+        // Calculate dimensions
+        int max_y, max_x;
+        getmaxyx(stdscr, max_y, max_x);
+        int half_width = max_x / 2;
+
+        // Create left window (song list)
+        left_win = newwin(max_y, half_width, 0, 0);
+        if (!left_win) {
+                endwin();
+                fprintf(stderr, "Failed to create left window\n");
+                exit(1);
+        }
+
+        // Create right window (currently playing info)
+        right_win = newwin(max_y, max_x - half_width, 0, half_width);
+        if (!right_win) {
+                delwin(left_win);
+                endwin();
+                fprintf(stderr, "Failed to create right window\n");
+                exit(1);
+        }
+
+        // Enable scrolling for the left window if needed
+        scrollok(left_win, TRUE);
 }
 
-static void show_song_list(void) {
-        clear();
-        for (size_t i = 0; i < ctx.songfps->len; ++i) {
-                if (i == ctx.sel_songfps_index) {
-                        attron(A_REVERSE);
-                }
-                mvprintw(i, 0, "%s\n", ctx.songnames.data[i]);
-                if (i == ctx.sel_songfps_index) {
-                        attroff(A_REVERSE);
-                }
-        }
+static void draw_currently_playing(void) {
+        werase(right_win);
+        box(right_win, 0, 0);
+        int max_y, max_x;
+        getmaxyx(left_win, max_y, max_x);
+        // Display currently playing info in right window (inside borders)
         if (ctx.currently_playing_index != -1) {
-                printw("=======\n");
-                printw("Now Playing: %s\n", ctx.songfps->data[ctx.currently_playing_index]);
+                getmaxyx(right_win, max_y, max_x);
+                mvwprintw(right_win, 1, 1, "Now Playing:");
+                // Truncate song name to fit inside borders
+                mvwprintw(right_win, 2, 1, "%.*s", max_x - 2, ctx.songnames.data[ctx.currently_playing_index]);
 
                 Uint64 current_ticks = SDL_GetTicks();
                 Uint64 elapsed_ms = ctx.paused ? (ctx.pause_start - ctx.start_ticks - ctx.paused_ticks)
@@ -230,12 +264,67 @@ static void show_song_list(void) {
 
                 char time_str[16];
                 format_time(time_played, time_str, sizeof(time_str));
-                printw("Time: %s", time_str);
+                mvwprintw(right_win, 4, 1, "Time: %s", time_str);
+
+                mvwprintw(right_win, 6, 1, ctx.paused ? "Paused" : "Playing");
+        } else {
+                mvwprintw(right_win, 1, 1, "No song playing");
         }
-        refresh();
+        wrefresh(right_win);
 }
 
-char *get_song_name(char *path) {
+static void draw_song_list(void) {
+        // Clear both windows
+        werase(left_win);
+
+        // Draw borders around both windows
+        box(left_win, 0, 0);
+
+        // Display song list in left window (inside borders)
+        int max_y, max_x;
+        getmaxyx(left_win, max_y, max_x);
+        for (size_t i = 0; i < ctx.songfps->len && i < (size_t)(max_y - 2); ++i) {
+                if (i == ctx.sel_songfps_index) {
+                        wattron(left_win, A_REVERSE);
+                }
+                // Print at x=1 to avoid left border, truncate to fit inside right border
+                mvwprintw(left_win, i + 1, 1, "%.*s", max_x - 2, ctx.songnames.data[i]);
+                if (i == ctx.sel_songfps_index) {
+                        wattroff(left_win, A_REVERSE);
+                }
+        }
+
+        // Refresh both windows
+        wrefresh(left_win);
+}
+
+static void resize_windows(void) {
+        endwin();
+        refresh();
+        int max_y, max_x;
+        getmaxyx(stdscr, max_y, max_x);
+        int half_width = max_x / 2;
+
+        if (left_win) delwin(left_win);
+        if (right_win) delwin(right_win);
+
+        left_win = newwin(max_y, half_width, 0, 0);
+        right_win = newwin(max_y, max_x - half_width, 0, half_width);
+
+        if (!left_win || !right_win) {
+                endwin();
+                fprintf(stderr, "Failed to recreate windows after resize\n");
+                exit(1);
+        }
+        scrollok(left_win, TRUE);
+}
+
+static void draw_windows(void) {
+        draw_song_list();
+        draw_currently_playing();
+}
+
+static char *get_song_name(char *path) {
         size_t sl = 0;
         for (size_t i = 0; path[i]; ++i) {
                 if (path[i] == '/') sl = i;
@@ -265,13 +354,18 @@ void run(const Str_Array *songfps) {
 
         int ch;
         while (1) {
-                show_song_list();
+                draw_windows();
                 ch = getch();
                 switch (ch) {
                 case CTRL('q'): goto done;
+                case CTRL('l'): {
+                        resize_windows();
+                } break;
+                case 'k':
                 case KEY_UP: {
                         handle_key_up();
                 } break;
+                case 'j':
                 case KEY_DOWN: {
                         handle_key_down();
                 } break;
