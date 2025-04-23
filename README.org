@@ -61,4 +61,5 @@ then try running it again.
 | [ENTER]       | Play song from song list                                  |
 | [CTRL+l]      | Redraw screen (if you resize the screen, run this)        |
 | [CTRL+q]      | Quit                                                      |
+| [CTRL+s]      | Save song list                                            |
 

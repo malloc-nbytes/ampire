@@ -27,9 +27,6 @@ void usage(void) {
 }
 
 int main(int argc, char **argv) {
-        if (argc < 2) {
-                usage();
-        }
         --argc, ++argv;
         clap_init(argc, argv);
 
@@ -54,7 +51,12 @@ int main(int argc, char **argv) {
                 }
         }
 
+        Str_Array config_fps = io_read_config_file();
         Str_Array songfps = io_flatten_dirs(&dirs);
+
+        for (size_t i = 0; i < config_fps.len; ++i) {
+                dyn_array_append(songfps, config_fps.data[i]);
+        }
 
         run(&songfps);
 
@@ -62,6 +64,7 @@ int main(int argc, char **argv) {
                 free(songfps.data[i]);
         }
         dyn_array_free(songfps);
+        dyn_array_free(config_fps);
         dyn_array_free(dirs);
 
         return 0;

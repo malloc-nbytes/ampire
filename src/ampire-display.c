@@ -11,6 +11,7 @@
 #include "tinyfiledialogs.h"
 #include "ampire-display.h"
 #include "ampire-flag.h"
+#include "ampire-io.h"
 
 #define Mix_GetError    SDL_GetError
 
@@ -667,6 +668,9 @@ void run(const Str_Array *songfps) {
                 case CTRL('l'): {
                         resize_windows(1);
                 } break;
+                case CTRL('s'): {
+                        io_write_to_config_file(ctx.songfps);
+                } break;
                 case 'k':
                 case KEY_UP: {
                         handle_key_up();
@@ -713,7 +717,7 @@ void run(const Str_Array *songfps) {
                         handle_search(0, 0, NULL);
                 } break;
                 case 'f': {
-                        char const *const filter_patterns[] = {"*.wav", "*.ogg", "*.mp3"};
+                        char const *const filter_patterns[] = {"*.wav", "*.ogg", "*.mp3", "*.opus"};
                         char *path = tinyfd_openFileDialog("Select a directory", ".",
                                                            sizeof(filter_patterns)/sizeof(*filter_patterns),
                                                            filter_patterns,
