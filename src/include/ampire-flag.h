@@ -4,7 +4,7 @@
 #include <stddef.h>
 
 enum {
-        FT_NONOTIF = 1 << 0,
+        FT_NOTIF = 1 << 0,
         FT_RECURSIVE = 1 << 1,
 };
 

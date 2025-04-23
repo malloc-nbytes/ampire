@@ -12,7 +12,7 @@
 #define FLAG_1HY_HELP 'h'
 #define FLAG_1HY_RECURSIVE 'r'
 #define FLAG_2HY_HELP "help"
-#define FLAG_2HY_NONOTIF "no-notif"
+#define FLAG_2HY_NOTIF "notif"
 #define FLAG_2HY_RECURSIVE "recursive"
 
 size_t g_flags = 0x0;
@@ -21,7 +21,7 @@ void usage(void) {
         printf("Usage: ampire <dir> [options...]\n");
         printf("Options:\n");
         printf("    -%c, --%s         print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
-        printf("        --%s     do not display notifications on song change\n", FLAG_2HY_NONOTIF);
+        printf("        --%s     display notifications on song change\n", FLAG_2HY_NOTIF);
         printf("    -%c, --%s    enable recursive search for songs\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
         exit(0);
 }
@@ -43,8 +43,8 @@ int main(int argc, char **argv) {
                         g_flags |= FT_RECURSIVE;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_HELP)) {
                         usage();
-                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_NONOTIF)) {
-                        g_flags |= FT_NONOTIF;
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_NOTIF)) {
+                        g_flags |= FT_NOTIF;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_RECURSIVE)) {
                         g_flags |= FT_RECURSIVE;
                 } else if (arg.hyphc > 0) {

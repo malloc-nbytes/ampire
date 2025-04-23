@@ -185,7 +185,7 @@ static void start_song(void) {
         play_music(ctx.songfps->data[ctx.sel_songfps_index]);
         ctx.paused = 0;
 
-        if ((g_flags & FT_NONOTIF) == 0) {
+        if (g_flags & FT_NOTIF) {
                 tinyfd_notifyPopup("[ampire]: Up Next", ctx.songnames.data[ctx.sel_songfps_index], "info");
         }
 
