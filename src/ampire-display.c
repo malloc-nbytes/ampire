@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <regex.h>
+#include <signal.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3_mixer/SDL_mixer.h>
@@ -428,7 +429,7 @@ static void draw_song_list(void) {
         wrefresh(left_win);
 }
 
-static void resize_windows(void) {
+static void resize_windows(int sig) {
         endwin();
         refresh();
         int max_y, max_x;
@@ -653,6 +654,8 @@ void run(const Str_Array *songfps) {
 
         init_ncurses();
 
+        signal(SIGWINCH, resize_windows);
+
         int ch;
         while (1) {
                 draw_windows();
@@ -662,7 +665,7 @@ void run(const Str_Array *songfps) {
                 case 'Q':
                 case CTRL('q'): goto done;
                 case CTRL('l'): {
-                        resize_windows();
+                        resize_windows(1);
                 } break;
                 case 'k':
                 case KEY_UP: {
