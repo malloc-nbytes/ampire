@@ -17,7 +17,7 @@ static int is_music_f(const char *fp) {
         }
         char buf[256] = {0};
         (void)strncpy(buf, fp + last + 1, strlen(fp + last + 1));
-        return !strcmp(buf, "wav") || !strcmp(buf, "ogg") || !strcmp(buf, "mp3");
+        return !strcmp(buf, "wav") || !strcmp(buf, "ogg") || !strcmp(buf, "mp3") || !strcmp(buf, "opus");
 }
 
 static void walk(const char *directory, Str_Array *arr) {
