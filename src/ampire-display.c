@@ -177,6 +177,10 @@ static void play_music(const char *song) {
 static void music_finished(void);
 
 static void start_song(void) {
+        if (ctx.songfps->len == 0) {
+                return;
+        }
+
         if (ctx.paused) {
                 pause_audio();
         }
@@ -482,11 +486,13 @@ static void handle_adv_type(void) {
         // This allows to just play a random song without
         // selecting one first.
         if (!ctx.sel_fst_song) {
-                ctx.sel_fst_song = 1;
-                ctx.currently_playing_index = ctx.sel_songfps_index = (size_t)rand() % ctx.songfps->len;
-                start_song();
-                dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
-                adjust_scroll_offset();
+                if (ctx.songfps->len != 0) {
+                        ctx.sel_fst_song = 1;
+                        ctx.currently_playing_index = ctx.sel_songfps_index = (size_t)rand() % ctx.songfps->len;
+                        start_song();
+                        dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
+                        adjust_scroll_offset();
+                }
         }
 }
 
