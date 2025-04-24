@@ -34,16 +34,16 @@ static struct {
         size_t sel_songfps_index;
         size_t scroll_offset;
         int sel_fst_song;
-        int paused;
-        int saved;
+        int paused; // Is the song currently paused
+        int saved; // Triggers song save [ctrl+s]
         Uint64 saved_last_ticks;
-        Music_Adv_Type mat;
-        ssize_t currently_playing_index;
-        Mix_Music *current_music;
+        Music_Adv_Type mat; // What happens after the song ends, normal, shuffle, or loop
+        ssize_t currently_playing_index; // Currently playing music index into `songfps`
+        Mix_Music *current_music; // Currently playing music
         Uint64 start_ticks;      // Time when song started
         Uint64 paused_ticks;     // Accumulated paused time
         Uint64 pause_start;      // Time when pause began
-        char *prevsearch;
+        char *prevsearch; // Previous search used for [n] and [N]
 } ctx = {
         .songfps = NULL,
         .history_idxs = {0},

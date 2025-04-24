@@ -137,6 +137,18 @@ void io_write_to_config_file(const Str_Array *filepaths) {
         fclose(f);
 }
 
+void io_clear_config_file(void) {
+        char *configfp = get_config_fp();
+        FILE *f = fopen(configfp, "w");
+        if (!f) {
+                perror("fopen");
+                exit(0);
+        }
+        printf("Cleared saved music at: %s\n", configfp);
+        fclose(f);
+        free(configfp);
+}
+
 Str_Array io_read_config_file(void) {
         Str_Array filepaths; dyn_array_init_type(filepaths);
 
