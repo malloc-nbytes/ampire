@@ -78,6 +78,13 @@ static void cleanup(void) {
         SDL_Quit();
 }
 
+volatile static int getrand(void) {
+        int r = 0;
+        if (ctx.songfps->len == 1) return 0;
+        while ((r = rand()%ctx.songfps->len) == ctx.currently_playing_index);
+        return r;
+}
+
 int regex(const char *pattern, const char *s) {
         regex_t regex;
         int reti;
@@ -206,7 +213,7 @@ static void music_finished(void) {
         if (ctx.mat == MAT_NORMAL) {
                 r = (ctx.currently_playing_index + 1) % ctx.songfps->len;
         } else if (ctx.mat == MAT_SHUFFLE) {
-                while ((r = (size_t)rand()%ctx.songfps->len) == ctx.currently_playing_index);
+                r = getrand();
         } else if (ctx.mat == MAT_LOOP) {
                 r = ctx.currently_playing_index;
         } else { assert(0); }
@@ -412,6 +419,10 @@ static void draw_song_list(void) {
         getmaxyx(left_win, max_y, max_x);
         size_t visible_rows = max_y - 2; // Account for borders
 
+        if (ctx.songfps->len == 0) {
+                mvwprintw(left_win, 1, 1, "No Music! Press [f] to select music! (unimplemented)");
+        }
+
         // Display songs starting from scroll_offset (for scrolling)
         for (size_t i = ctx.scroll_offset; i < ctx.songfps->len && i < ctx.scroll_offset + visible_rows; ++i) {
                 size_t display_row = i - ctx.scroll_offset + 1; // Row relative to window (1 to avoid top border)
@@ -488,7 +499,7 @@ static void handle_adv_type(void) {
         if (!ctx.sel_fst_song) {
                 if (ctx.songfps->len != 0) {
                         ctx.sel_fst_song = 1;
-                        ctx.currently_playing_index = ctx.sel_songfps_index = (size_t)rand() % ctx.songfps->len;
+                        ctx.currently_playing_index = ctx.sel_songfps_index = (size_t)getrand();
                         start_song();
                         dyn_array_append(ctx.history_idxs, ctx.currently_playing_index);
                         adjust_scroll_offset();
@@ -506,7 +517,7 @@ static void handle_next_song(void) {
         if (ctx.mat == MAT_NORMAL) {
                 r = (ctx.currently_playing_index + 1) % ctx.songfps->len;
         } else if (ctx.mat == MAT_SHUFFLE) {
-                while ((r = (size_t)rand() % ctx.songfps->len) == ctx.currently_playing_index);
+                r = getrand();
         } else if (ctx.mat == MAT_LOOP) {
                 r = ctx.currently_playing_index;
         } else {
@@ -516,7 +527,6 @@ static void handle_next_song(void) {
         ctx.currently_playing_index = ctx.sel_songfps_index = r;
 
         Mix_HaltMusic();
-        //start_song();
 
         // Adjust scroll offset to keep selection visible
         adjust_scroll_offset();

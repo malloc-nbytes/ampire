@@ -22,8 +22,25 @@ static int is_music_f(const char *fp) {
         return !strcmp(buf, "wav") || !strcmp(buf, "ogg") || !strcmp(buf, "mp3") || !strcmp(buf, "opus");
 }
 
-static void walk(const char *directory, Str_Array *arr) {
-        DIR *dir = opendir(directory);
+static void walk(const char *path, Str_Array *arr) {
+        struct stat st;
+        if (stat(path, &st) == -1) {
+                perror("stat");
+                return;
+        }
+
+        if (S_ISREG(st.st_mode) && is_music_f(path)) {
+                dyn_array_append(*arr, strdup(path));
+                return;
+        }
+
+        // If it's not a directory, return (only directories are walked)
+        if (!S_ISDIR(st.st_mode)) {
+                printf("filepath %s is not a directory or a file in a supported format", path);
+                return;
+        }
+
+        DIR *dir = opendir(path);
         if (dir == NULL) {
                 perror("opendir");
                 return;
@@ -37,20 +54,19 @@ static void walk(const char *directory, Str_Array *arr) {
                 }
 
                 // Build full path to file
-                char path[1024] = {0};
-                snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name);
+                char subpath[1024] = {0};
+                snprintf(subpath, sizeof(subpath), "%s/%s", path, entry->d_name);
 
-                struct stat st;
-                if (stat(path, &st) == -1) {
+                if (stat(subpath, &st) == -1) {
                         perror("stat");
                         continue;
                 }
 
-                // Check if it's a regular file and a music file.
+                // Check if it's a regular file and a music file
                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) {
-                        dyn_array_append(*arr, strdup(path));
+                        dyn_array_append(*arr, strdup(subpath));
                 } else if (S_ISDIR(st.st_mode) && (g_flags & FT_RECURSIVE)) {
-                        walk(path, arr);
+                        walk(subpath, arr);
                 }
         }
 
@@ -58,7 +74,8 @@ static void walk(const char *directory, Str_Array *arr) {
 }
 
 Str_Array io_flatten_dirs(const Str_Array *dirs) {
-        Str_Array arr; dyn_array_init_type(arr);
+        Str_Array arr;
+        dyn_array_init_type(arr);
 
         for (size_t i = 0; i < dirs->len; ++i) {
                 walk(dirs->data[i], &arr);
