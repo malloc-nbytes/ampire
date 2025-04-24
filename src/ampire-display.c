@@ -35,6 +35,8 @@ static struct {
         size_t scroll_offset;
         int sel_fst_song;
         int paused;
+        int saved;
+        Uint64 saved_last_ticks;
         Music_Adv_Type mat;
         ssize_t currently_playing_index;
         Mix_Music *current_music;
@@ -50,6 +52,8 @@ static struct {
         .scroll_offset = 0,
         .sel_fst_song = 0,
         .paused = 0,
+        .saved = 0,
+        .saved_last_ticks = 0,
         .mat = MAT_NORMAL,
         .currently_playing_index = -1,
         .current_music = NULL,
@@ -423,22 +427,31 @@ static void draw_song_list(void) {
                 mvwprintw(left_win, 1, 1, "No Music! Press [f] to select music! (unimplemented)");
         }
 
-        // Display songs starting from scroll_offset (for scrolling)
-        for (size_t i = ctx.scroll_offset; i < ctx.songfps->len && i < ctx.scroll_offset + visible_rows; ++i) {
-                size_t display_row = i - ctx.scroll_offset + 1; // Row relative to window (1 to avoid top border)
-                if (i == ctx.sel_songfps_index) {
-                        wattron(left_win, A_REVERSE);
+        if (ctx.saved) {
+                Uint64 t = SDL_GetTicks();
+                if (t > ctx.saved_last_ticks + 1500) {
+                        ctx.saved = 0;
+                } else {
+                        mvwprintw(left_win, 1, 1, "Saved !");
                 }
-                // Print at x=1 to avoid left border, truncate to fit inside right border
-                mvwprintw(left_win, display_row, 1, "%.*s", max_x - 2, ctx.songnames.data[i]);
-                if (i == ctx.sel_songfps_index) {
-                        wattroff(left_win, A_REVERSE);
-                }
-                if (!ctx.paused && i == ctx.currently_playing_index) {
-                        const char *equalizer_frames[] = {"|", "/", "-", "\\"};
-                        int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
-                        int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
-                        mvwprintw(left_win, display_row, strlen(ctx.songnames.data[i]) + 2, "%s", equalizer_frames[frame]);
+        } else {
+                // Display songs starting from scroll_offset (for scrolling)
+                for (size_t i = ctx.scroll_offset; i < ctx.songfps->len && i < ctx.scroll_offset + visible_rows; ++i) {
+                        size_t display_row = i - ctx.scroll_offset + 1; // Row relative to window (1 to avoid top border)
+                        if (i == ctx.sel_songfps_index) {
+                                wattron(left_win, A_REVERSE);
+                        }
+                        // Print at x=1 to avoid left border, truncate to fit inside right border
+                        mvwprintw(left_win, display_row, 1, "%.*s", max_x - 2, ctx.songnames.data[i]);
+                        if (i == ctx.sel_songfps_index) {
+                                wattroff(left_win, A_REVERSE);
+                        }
+                        if (!ctx.paused && i == ctx.currently_playing_index) {
+                                const char *equalizer_frames[] = {"|", "/", "-", "\\"};
+                                int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
+                                int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
+                                mvwprintw(left_win, display_row, strlen(ctx.songnames.data[i]) + 2, "%s", equalizer_frames[frame]);
+                        }
                 }
         }
 
@@ -579,12 +592,12 @@ static char *get_search(void) {
 
         // Enable input settings
         keypad(search_win, TRUE);
-        nodelay(search_win, FALSE); // Block for input (override timeout(100))
+        nodelay(search_win, FALSE); // Block for input
         echo();
 
         int ch;
         while (1) {
-                mvwprintw(search_win, 1, 1, "%-*s", win_width - 2, input); // Pad to clear old text
+                mvwprintw(search_win, 1, 1, "%-*s", win_width - 2, input);
                 wrefresh(search_win);
 
                 ch = wgetch(search_win);
@@ -599,16 +612,14 @@ static char *get_search(void) {
                         noecho();
                         return NULL;
                 } else if (ch == BACKSPACE || ch == 127) {
-                        // Delete last character
                         if (input_len > 0) {
                                 input[--input_len] = '\0';
                         }
                 } else if (ch >= 32 && ch <= 126 && input_len < sizeof(input) - 1) {
-                        // Append printable character
                         input[input_len++] = ch;
                         input[input_len] = '\0';
                 }
-                // Ignore other characters (e.g., arrow keys, function keys)
+                // Ignore other characters
         }
 }
 
@@ -685,6 +696,8 @@ void run(const Str_Array *songfps) {
                         resize_windows(1);
                 } break;
                 case CTRL('s'): {
+                        ctx.saved = 1;
+                        ctx.saved_last_ticks = SDL_GetTicks();
                         io_write_to_config_file(ctx.songfps);
                 } break;
                 case 'k':
