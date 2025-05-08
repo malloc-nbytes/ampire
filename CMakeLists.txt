@@ -71,7 +71,7 @@ file(GLOB_RECURSE SOURCES
 add_executable(ampire ${SOURCES})
 
 # Link SDL3 and SDL3_mixer to the executable
-target_link_libraries(ampire PRIVATE SDL3::SDL3-shared SDL3_mixer::SDL3_mixer-shared ncurses)
+target_link_libraries(ampire PRIVATE SDL3::SDL3-shared SDL3_mixer::SDL3_mixer-shared ncurses tinfo)
 
 # Install targets
 install(TARGETS ampire DESTINATION bin)

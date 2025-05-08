@@ -3,6 +3,13 @@
 
 #include "ds/array.h"
 
-void run(const Str_Array *songfps);
+typedef struct {
+        Str_Array songfps;
+        char *name;
+} Playlist;
+
+DYN_ARRAY_TYPE(Playlist, Playlist_Array);
+
+void run(const Playlist_Array *playlists);
 
 #endif // DISPLAY_H

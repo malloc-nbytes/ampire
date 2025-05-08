@@ -4,11 +4,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include "ampire-io.h"
 #include "ds/array.h"
 #include "dyn_array.h"
 #include "ampire-flag.h"
+#include "ampire-ncurses-helpers.h"
 
 static int is_music_f(const char *fp) {
         size_t last = 0;
@@ -23,26 +25,42 @@ static int is_music_f(const char *fp) {
 }
 
 static void walk(const char *path, Str_Array *arr) {
+        // Convert input path to absolute path
+        char *abs_path = realpath(path, NULL);
+        if (!abs_path) {
+                perror("realpath");
+                display_temp_message("Failed to resolve absolute path!");
+                return;
+        }
+
         struct stat st;
-        if (stat(path, &st) == -1) {
+        if (stat(abs_path, &st) == -1) {
                 perror("stat");
+                free(abs_path);
                 return;
         }
 
-        if (S_ISREG(st.st_mode) && is_music_f(path)) {
-                dyn_array_append(*arr, strdup(path));
+        // Check if it's a regular file and a music file
+        if (S_ISREG(st.st_mode) && is_music_f(abs_path)) {
+                dyn_array_append(*arr, strdup(abs_path));
+                free(abs_path);
                 return;
         }
 
-        // If it's not a directory, return (only directories are walked)
+        // If it's not a directory, print error and return
         if (!S_ISDIR(st.st_mode)) {
-                printf("filepath %s is not a directory or a file in a supported format", path);
+                char msg[256];
+                snprintf(msg, sizeof(msg), "Path %s is not a directory or a supported file format", abs_path);
+                display_temp_message(msg);
+                free(abs_path);
                 return;
         }
 
-        DIR *dir = opendir(path);
-        if (dir == NULL) {
+        // Open directory
+        DIR *dir = opendir(abs_path);
+        if (!dir) {
                 perror("opendir");
+                free(abs_path);
                 return;
         }
 
@@ -53,35 +71,102 @@ static void walk(const char *path, Str_Array *arr) {
                         continue;
                 }
 
-                // Build full path to file
-                char subpath[1024] = {0};
-                snprintf(subpath, sizeof(subpath), "%s/%s", path, entry->d_name);
+                // Build full absolute subpath
+                char subpath[PATH_MAX];
+                snprintf(subpath, sizeof(subpath), "%s/%s", abs_path, entry->d_name);
 
-                if (stat(subpath, &st) == -1) {
+                // Verify subpath is valid by getting its absolute path
+                char *abs_subpath = realpath(subpath, NULL);
+                if (!abs_subpath) {
+                        perror("realpath");
+                        continue; // Skip invalid paths
+                }
+
+                if (stat(abs_subpath, &st) == -1) {
                         perror("stat");
+                        free(abs_subpath);
                         continue;
                 }
 
                 // Check if it's a regular file and a music file
                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) {
-                        dyn_array_append(*arr, strdup(subpath));
+                        dyn_array_append(*arr, strdup(abs_subpath));
                 } else if (S_ISDIR(st.st_mode) && (g_flags & FT_RECURSIVE)) {
-                        walk(subpath, arr);
+                        // Recursive call with absolute subpath
+                        walk(abs_subpath, arr);
                 }
+
+                free(abs_subpath);
         }
 
         closedir(dir);
+        free(abs_path);
 }
 
-Str_Array io_flatten_dirs(const Str_Array *dirs) {
-        Str_Array arr;
-        dyn_array_init_type(arr);
+/* static void walk(const char *path, Str_Array *arr) { */
+/*         struct stat st; */
+/*         if (stat(path, &st) == -1) { */
+/*                 perror("stat"); */
+/*                 return; */
+/*         } */
+
+/*         if (S_ISREG(st.st_mode) && is_music_f(path)) { */
+/*                 dyn_array_append(*arr, strdup(path)); */
+/*                 return; */
+/*         } */
+
+/*         // If it's not a directory, return (only directories are walked) */
+/*         if (!S_ISDIR(st.st_mode)) { */
+/*                 printf("filepath %s is not a directory or a file in a supported format", path); */
+/*                 return; */
+/*         } */
+
+/*         DIR *dir = opendir(path); */
+/*         if (dir == NULL) { */
+/*                 perror("opendir"); */
+/*                 return; */
+/*         } */
+
+/*         struct dirent *entry; */
+/*         while ((entry = readdir(dir)) != NULL) { */
+/*                 // Skip "." and ".." */
+/*                 if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) { */
+/*                         continue; */
+/*                 } */
+
+/*                 // Build full path to file */
+/*                 char subpath[1024] = {0}; */
+/*                 snprintf(subpath, sizeof(subpath), "%s/%s", path, entry->d_name); */
+
+/*                 if (stat(subpath, &st) == -1) { */
+/*                         perror("stat"); */
+/*                         continue; */
+/*                 } */
+
+/*                 // Check if it's a regular file and a music file */
+/*                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) { */
+/*                         dyn_array_append(*arr, strdup(subpath)); */
+/*                 } else if (S_ISDIR(st.st_mode) && (g_flags & FT_RECURSIVE)) { */
+/*                         walk(subpath, arr); */
+/*                 } */
+/*         } */
+
+/*         closedir(dir); */
+/* } */
+
+Playlist_Array io_flatten_dirs(const Str_Array *dirs) {
+        Playlist_Array pa = dyn_array_empty(Playlist_Array);
 
         for (size_t i = 0; i < dirs->len; ++i) {
+                Str_Array arr = dyn_array_empty(Str_Array);
                 walk(dirs->data[i], &arr);
+                dyn_array_append(pa, ((Playlist) {
+                        .songfps = arr,
+                        .name = dirs->data[i],
+                }));
         }
 
-        return arr;
+        return pa;
 }
 
 static char *get_config_fp(void) {
@@ -96,7 +181,7 @@ static char *get_config_fp(void) {
 
 #include <ncurses.h>
 
-void io_write_to_config_file(const Str_Array *filepaths) {
+void io_write_to_config_file(const char *pname, const Str_Array *filepaths) {
         char *configfp = get_config_fp();
         FILE *f = fopen(configfp, "a");
 
@@ -124,6 +209,8 @@ void io_write_to_config_file(const Str_Array *filepaths) {
         WINDOW *win = newwin(win_height, win_width, start_y, start_x);
         box(win, 0, 0);
 
+        fprintf(f, "__ampire-playlist\n");
+        fprintf(f, "%s\n", pname);
         for (size_t i = 0; i < filepaths->len; ++i) {
                 wmove(win, 1, 1);
                 wclrtoeol(win); // Clear the line to the end
@@ -149,8 +236,8 @@ void io_clear_config_file(void) {
         free(configfp);
 }
 
-Str_Array io_read_config_file(void) {
-        Str_Array filepaths; dyn_array_init_type(filepaths);
+Playlist_Array io_read_config_file(void) {
+        Playlist_Array playlists; dyn_array_init_type(playlists);
 
         char *configfp = get_config_fp();
 
@@ -163,17 +250,195 @@ Str_Array io_read_config_file(void) {
         char *line = NULL;
         size_t len = 0;
         ssize_t read = 0;
+        int wait_playlist_name = 0;
+        ssize_t playlist_idx = -1;
         while((read = getline(&line, &len, f)) != -1) {
-                if (!strcmp(line, "\n")) continue;
-                if (line[read-1] == '\n') {
-                        line[read-1] = '\0';
+                if (!strcmp(line, "\n"))  continue;
+                if (line[read-1] == '\n') line[read-1] = '\0';
+
+                if (!strcmp(line, "__ampire-playlist")) {
+                        wait_playlist_name = 1;
+                } else if (wait_playlist_name) {
+                        wait_playlist_name = 0;
+                        Playlist p = {
+                                .songfps = dyn_array_empty(Str_Array),
+                                .name = strdup(line),
+                        };
+                        dyn_array_append(playlists, p);
+                        ++playlist_idx;
+                } else {
+                        dyn_array_append(playlists.data[playlist_idx].songfps, strdup(line));
                 }
-                dyn_array_append(filepaths, strdup(line));
         }
+
+        /* for (size_t i = 0; i < playlists.len; ++i) { */
+        /*         printf("%s:\n", playlists.data[i].name); */
+        /*         for (size_t j = 0; j < playlists.data[i].songfps.len; ++j) { */
+        /*                 printf("  %s\n", playlists.data[i].songfps.data[j]); */
+        /*         } */
+        /* } */
 
         free(line);
 done:
         free(configfp);
         fclose(f);
-        return filepaths;
+        return playlists;
+}
+
+int io_del_playlist(const char *pname) {
+        if (!pname) {
+                display_temp_message("No playlist name provided!");
+                return 0;
+        }
+
+        // Confirm deletion with user
+        char prompt[256];
+        snprintf(prompt, sizeof(prompt), "Delete playlist '%s'?", pname);
+        if (!prompt_yes_no(prompt)) {
+                display_temp_message("Playlist deletion cancelled.");
+                return 0;
+        }
+
+        // Get config file path
+        char *configfp = get_config_fp();
+        if (!configfp) {
+                display_temp_message("Failed to get config file path!");
+                return 0;
+        }
+
+        // Open file for reading
+        FILE *f = fopen(configfp, "r");
+        if (!f) {
+                perror("fopen");
+                display_temp_message("Failed to open config file for reading!");
+                free(configfp);
+                return 0;
+        }
+
+        // Read all lines into a dynamic array
+        Str_Array old_lines = dyn_array_empty(Str_Array);
+        char *line = NULL;
+        size_t len = 0;
+        ssize_t read;
+
+        while ((read = getline(&line, &len, f)) != -1) {
+                // Remove trailing newline if present
+                if (read > 0 && line[read - 1] == '\n') {
+                        line[read - 1] = '\0';
+                        read--;
+                }
+                // Skip empty lines when storing
+                if (read == 0 || !strcmp(line, "")) {
+                        continue;
+                }
+                // Duplicate line for storage
+                char *copy = strdup(line);
+                if (!copy) {
+                        perror("strdup");
+                        display_temp_message("Memory allocation failed!");
+                        fclose(f);
+                        free(line);
+                        free(configfp);
+                        dyn_array_free(old_lines);
+                        return 0;
+                }
+                dyn_array_append(old_lines, copy);
+        }
+
+        // Check for read errors
+        if (ferror(f)) {
+                perror("fread");
+                display_temp_message("Error reading config file!");
+                fclose(f);
+                free(line);
+                free(configfp);
+                dyn_array_free(old_lines);
+                return 0;
+        }
+        fclose(f);
+        free(line);
+
+        // Filter out the target playlist
+        Str_Array new_lines = dyn_array_empty(Str_Array);
+        int skip = 0; // Flag to skip lines in the target playlist
+        int expect_name = 0; // Flag to expect playlist name after __ampire-playlist
+
+        for (size_t i = 0; i < old_lines.len; i++) {
+                char *current_line = old_lines.data[i];
+
+                if (!strcmp(current_line, "__ampire-playlist")) {
+                        // Start of a new playlist
+                        skip = 0;
+                        expect_name = 1;
+                        dyn_array_append(new_lines, strdup(current_line));
+                        continue;
+                }
+
+                if (expect_name) {
+                        // This is the playlist name
+                        expect_name = 0;
+                        if (!strcmp(current_line, pname)) {
+                                // Target playlist found; skip it and its file paths
+                                skip = 1;
+                                // Remove the __ampire-playlist marker for this playlist
+                                dyn_array_rm_at(new_lines, new_lines.len - 1);
+                        } else {
+                                // Keep the playlist name
+                                dyn_array_append(new_lines, strdup(current_line));
+                        }
+                        continue;
+                }
+
+                if (!skip) {
+                        // Keep file paths or other lines not in the target playlist
+                        dyn_array_append(new_lines, strdup(current_line));
+                }
+        }
+
+        // Open file for writing
+        f = fopen(configfp, "w");
+        if (!f) {
+                perror("fopen");
+                display_temp_message("Failed to open config file for writing!");
+                free(configfp);
+                dyn_array_free(old_lines);
+                dyn_array_free(new_lines);
+                return 0;
+        }
+
+        // Write filtered lines
+        for (size_t i = 0; i < new_lines.len; i++) {
+                if (fprintf(f, "%s\n", new_lines.data[i]) < 0) {
+                        perror("fprintf");
+                        display_temp_message("Error writing to config file!");
+                        fclose(f);
+                        free(configfp);
+                        dyn_array_free(old_lines);
+                        dyn_array_free(new_lines);
+                        return 0;
+                }
+        }
+
+        // Check for write errors
+        if (ferror(f)) {
+                perror("fwrite");
+                display_temp_message("Error writing to config file!");
+                fclose(f);
+                free(configfp);
+                dyn_array_free(old_lines);
+                dyn_array_free(new_lines);
+                return 0;
+        }
+
+        fclose(f);
+        free(configfp);
+
+        dyn_array_free(old_lines);
+        dyn_array_free(new_lines);
+
+        char success_msg[256];
+        snprintf(success_msg, sizeof(success_msg), "Playlist '%s' deleted.", pname);
+        display_temp_message(success_msg);
+
+        return 1;
 }
