@@ -55,7 +55,7 @@ DYN_ARRAY_TYPE(Ctx, Ctx_Array);
 // Used for SDL function(s) with sig (*)(void) but
 // we still need to use the context. This should
 // be *always* set whenever the context switches!
-static Ctx g_ctx = {0};
+static Ctx *g_ctx = NULL;
 
 static WINDOW *left_win;  // Window for song list
 static WINDOW *right_win; // Window for currently playing info
@@ -68,9 +68,9 @@ static void cleanup(void) {
         if (right_win) delwin(right_win);
         Mix_HookMusicFinished(NULL);
         Mix_HaltMusic();
-        if (g_ctx.current_music) {
-                Mix_FreeMusic(g_ctx.current_music);
-                g_ctx.current_music = NULL;
+        if (g_ctx->current_music) {
+                Mix_FreeMusic(g_ctx->current_music);
+                g_ctx->current_music = NULL;
         }
         Mix_CloseAudio();
         endwin();
@@ -210,18 +210,18 @@ static void start_song(Ctx *ctx) {
 static void music_finished(void) {
         assert(g_ctx);
         size_t r = 0;
-        if (g_ctx.mat == MAT_NORMAL) {
-                r = (g_ctx.currently_playing_index + 1) % g_ctx.songfps->len;
-        } else if (g_ctx.mat == MAT_SHUFFLE) {
-                r = getrand(&g_ctx);
-        } else if (g_ctx.mat == MAT_LOOP) {
-                r = g_ctx.currently_playing_index;
+        if (g_ctx->mat == MAT_NORMAL) {
+                r = (g_ctx->currently_playing_index + 1) % g_ctx->songfps->len;
+        } else if (g_ctx->mat == MAT_SHUFFLE) {
+                r = getrand(g_ctx);
+        } else if (g_ctx->mat == MAT_LOOP) {
+                r = g_ctx->currently_playing_index;
         } else { assert(0); }
-        g_ctx.currently_playing_index = g_ctx.sel_songfps_index = r;
-        dyn_array_append(g_ctx.history_idxs, g_ctx.currently_playing_index);
+        g_ctx->currently_playing_index = g_ctx->sel_songfps_index = r;
+        dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index);
         Mix_HaltMusic();
-        start_song(&g_ctx);
-        adjust_scroll_offset(&g_ctx);
+        start_song(g_ctx);
+        adjust_scroll_offset(g_ctx);
 }
 
 static void pause_audio(Ctx *ctx) {
@@ -412,8 +412,11 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                           ctx->mat == MAT_SHUFFLE ? "Shuffle" : "Loop");
 
                 if (ctx->history_idxs.len > 0) {
-                        mvwprintw(right_win, iota(1), 1, "History");
                         size_t start = ctx->history_idxs.len > 5 ? ctx->history_idxs.len - 5 : 0;
+                        mvwprintw(right_win, iota(0), 1, "History");
+                        if (start == 0) {
+                                (void)iota(1);
+                        }
                         if (start != 0) {
                                 mvwprintw(right_win, iota(1), strlen("History")+1, " [...%zu]", ctx->history_idxs.len-5);
                         }
@@ -507,10 +510,10 @@ static void resize_windows(int sig) {
 
         // Adjust scroll_offset to keep sel_songfps_index visible
         size_t visible_rows = max_y - 2;
-        if (g_ctx.sel_songfps_index < g_ctx.scroll_offset) {
-                g_ctx.scroll_offset = g_ctx.sel_songfps_index;
-        } else if (g_ctx.sel_songfps_index >= g_ctx.scroll_offset + visible_rows) {
-                g_ctx.scroll_offset = g_ctx.sel_songfps_index - visible_rows + 1;
+        if (g_ctx->sel_songfps_index < g_ctx->scroll_offset) {
+                g_ctx->scroll_offset = g_ctx->sel_songfps_index;
+        } else if (g_ctx->sel_songfps_index >= g_ctx->scroll_offset + visible_rows) {
+                g_ctx->scroll_offset = g_ctx->sel_songfps_index - visible_rows + 1;
         }
 }
 
@@ -551,20 +554,6 @@ static void handle_next_song(Ctx *ctx) {
         if (ctx->currently_playing_index == -1 || !ctx->current_music || !ctx->sel_fst_song) {
                 return;
         }
-
-        // Select next song based on playback mode
-        size_t r = 0;
-        if (ctx->mat == MAT_NORMAL) {
-                r = (ctx->currently_playing_index + 1) % ctx->songfps->len;
-        } else if (ctx->mat == MAT_SHUFFLE) {
-                r = getrand(ctx);
-        } else if (ctx->mat == MAT_LOOP) {
-                r = ctx->currently_playing_index;
-        } else {
-                assert(0);
-        }
-
-        ctx->currently_playing_index = ctx->sel_songfps_index = r;
 
         Mix_HaltMusic();
 
@@ -720,7 +709,7 @@ void run(const Playlist_Array *playlists) {
         for (size_t i = 0; i < playlists->len; ++i) {
                 dyn_array_append(ctxs, ctx_create(&playlists->data[i]));
         }
-        g_ctx = ctxs.data[0];
+        g_ctx = &ctxs.data[0];
 
         SDL_SetLogPriorities(SDL_LOG_PRIORITY_ERROR);
 
@@ -739,14 +728,14 @@ void run(const Playlist_Array *playlists) {
 
         int ch;
         while (1) {
-                Ctx *ctx = &ctxs.data[ctx_idx];
-                draw_windows(ctx, &ctxs);
+                draw_windows(g_ctx, &ctxs);
                 ch = getch();
 
                 if (isdigit(ch)) {
                         int idx = (ch-'0') - 1;
                         if (idx < playlists->len) {
                                 ctx_idx = idx;
+                                g_ctx = &ctxs.data[ctx_idx];
                                 continue;
                         }
                 }
@@ -760,54 +749,54 @@ void run(const Playlist_Array *playlists) {
                 } break;
                 case CTRL('s'): {
                         assert(0);
-                        ctx->saved = 1;
-                        ctx->saved_last_ticks = SDL_GetTicks();
-                        io_write_to_config_file(ctx->songfps);
+                        /* ctx->saved = 1; */
+                        /* ctx->saved_last_ticks = SDL_GetTicks(); */
+                        /* io_write_to_config_file(ctx->songfps); */
                 } break;
                 case 'k':
                 case KEY_UP: {
-                        handle_key_up(ctx);
+                        handle_key_up(g_ctx);
                 } break;
                 case 'j':
                 case KEY_DOWN: {
-                        handle_key_down(ctx);
+                        handle_key_down(g_ctx);
                 } break;
                 case 'h':
                 case KEY_LEFT: {
-                        handle_key_left(ctx);
+                        handle_key_left(g_ctx);
                 } break;
                 case 'l':
                 case KEY_RIGHT: {
-                        handle_key_right(ctx);
+                        handle_key_right(g_ctx);
                 } break;
                 case SPACE: {
-                        pause_audio(ctx);
+                        pause_audio(g_ctx);
                 } break;
                 case 'a': {
-                        handle_adv_type(ctx);
+                        handle_adv_type(g_ctx);
                 } break;
                 case 'L':
                 case '.':
                 case '>': {
-                        handle_next_song(ctx);
+                        handle_next_song(g_ctx);
                 } break;
                 case 'H':
                 case ',':
                 case '<': {
-                        handle_prev_song(ctx);
+                        handle_prev_song(g_ctx);
                 } break;
                 case 'n': {
-                        if (ctx->sel_songfps_index < ctx->songnames.len-1) {
-                                handle_search(ctx, ctx->sel_songfps_index+1, 0, ctx->prevsearch);
+                        if (g_ctx->sel_songfps_index < g_ctx->songnames.len-1) {
+                                handle_search(g_ctx, g_ctx->sel_songfps_index+1, 0, g_ctx->prevsearch);
                         }
                 } break;
                 case 'N': {
-                        if (ctx->sel_songfps_index > 0) {
-                                handle_search(ctx, ctx->sel_songfps_index-1, 1, ctx->prevsearch);
+                        if (g_ctx->sel_songfps_index > 0) {
+                                handle_search(g_ctx, g_ctx->sel_songfps_index-1, 1, g_ctx->prevsearch);
                         }
                 } break;
                 case '/': {
-                        handle_search(ctx, 0, 0, NULL);
+                        handle_search(g_ctx, 0, 0, NULL);
                 } break;
                 case 'f': {
                         char const *const filter_patterns[] = {"*.wav", "*.ogg", "*.mp3", "*.opus"};
@@ -818,8 +807,8 @@ void run(const Playlist_Array *playlists) {
                         assert(0 && "selecting files is unimplemented");
                 } break;
                 case ENTER: {
-                        start_song(ctx);
-                        dyn_array_append(ctx->history_idxs, ctx->currently_playing_index);
+                        start_song(g_ctx);
+                        dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index);
                 } break;
                 default: (void)0x0;
                 }
