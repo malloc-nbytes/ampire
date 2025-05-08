@@ -30,6 +30,7 @@ typedef enum {
 } Music_Adv_Type;
 
 typedef struct {
+        size_t uuid;
         const Str_Array *songfps;
         const char *pname;               // Playlist name
         Str_Array songnames;             // The stripped songname from the path
@@ -345,13 +346,26 @@ int iota(int forward) {
         return res;
 }
 
-static void draw_currently_playing(Ctx *ctx) {
+static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
         (void)iota(-1);
 
         werase(right_win);
         box(right_win, 0, 0);
         int max_y, max_x;
         getmaxyx(right_win, max_y, max_x);
+
+        for (size_t i = 0; i < ctxs->len; ++i) {
+                if (i == ctx->uuid) {
+                        wattron(right_win, A_REVERSE | A_BLINK);
+                }
+                mvwprintw(right_win, iota(1), 1, "[ %zu ] %s", i+1, ctxs->data[i].pname);
+                if (i == ctx->uuid) {
+                        wattroff(right_win, A_REVERSE | A_BLINK);
+                }
+        }
+
+        (void)iota(1);
+
         // Display currently playing info in right window (inside borders)
         if (ctx->currently_playing_index != -1) {
                 // "Now Playing" animation
@@ -500,9 +514,9 @@ static void resize_windows(int sig) {
         }
 }
 
-static void draw_windows(Ctx *ctx) {
+static void draw_windows(Ctx *ctx, Ctx_Array *ctxs) {
         draw_song_list(ctx);
-        draw_currently_playing(ctx);
+        draw_currently_playing(ctx, ctxs);
 }
 
 static char *get_song_name(char *path) {
@@ -671,7 +685,9 @@ static void handle_search(Ctx *ctx, size_t startfrom, int rev, char *prevsearch)
 }
 
 Ctx ctx_create(const Playlist *p) {
+        static size_t uuid = 0;
         Ctx ctx = (Ctx) {
+                .uuid = uuid++,
                 .songfps = &p->songfps,
                 .pname = p->name,
                 .history_idxs = dyn_array_empty(Size_T_Array),
@@ -697,12 +713,12 @@ Ctx ctx_create(const Playlist *p) {
         return ctx;
 }
 
-// Does not take ownership of songfps
+// Does not take ownership of playlists
 void run(const Playlist_Array *playlists) {
         srand((unsigned int)time(NULL));
         Ctx_Array ctxs = dyn_array_empty(Ctx_Array);
         for (size_t i = 0; i < playlists->len; ++i) {
-                dyn_array_append(ctxs, ctx_create(&playlists->data[0]));
+                dyn_array_append(ctxs, ctx_create(&playlists->data[i]));
         }
         g_ctx = ctxs.data[0];
 
@@ -724,7 +740,7 @@ void run(const Playlist_Array *playlists) {
         int ch;
         while (1) {
                 Ctx *ctx = &ctxs.data[ctx_idx];
-                draw_windows(ctx);
+                draw_windows(ctx, &ctxs);
                 ch = getch();
 
                 if (isdigit(ch)) {
