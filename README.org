@@ -58,8 +58,10 @@ then try running it again.
 | [/]           | Search the song list with regex                           |
 | [n]           | Search for next match                                     |
 | [N]           | Search for previous match                                 |
+| [d]           | Delete song list                                          |
 | [ENTER]       | Play song from song list                                  |
 | [CTRL+l]      | Redraw screen (if you resize the screen, run this)        |
 | [CTRL+q]      | Quit                                                      |
 | [CTRL+s]      | Save song list                                            |
+| [1..=9]       | Select song list                                          |
 
