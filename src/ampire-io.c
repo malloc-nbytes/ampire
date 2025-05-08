@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include "ampire-io.h"
 #include "ds/array.h"
@@ -24,26 +25,42 @@ static int is_music_f(const char *fp) {
 }
 
 static void walk(const char *path, Str_Array *arr) {
+        // Convert input path to absolute path
+        char *abs_path = realpath(path, NULL);
+        if (!abs_path) {
+                perror("realpath");
+                display_temp_message("Failed to resolve absolute path!");
+                return;
+        }
+
         struct stat st;
-        if (stat(path, &st) == -1) {
+        if (stat(abs_path, &st) == -1) {
                 perror("stat");
+                free(abs_path);
                 return;
         }
 
-        if (S_ISREG(st.st_mode) && is_music_f(path)) {
-                dyn_array_append(*arr, strdup(path));
+        // Check if it's a regular file and a music file
+        if (S_ISREG(st.st_mode) && is_music_f(abs_path)) {
+                dyn_array_append(*arr, strdup(abs_path));
+                free(abs_path);
                 return;
         }
 
-        // If it's not a directory, return (only directories are walked)
+        // If it's not a directory, print error and return
         if (!S_ISDIR(st.st_mode)) {
-                printf("filepath %s is not a directory or a file in a supported format", path);
+                char msg[256];
+                snprintf(msg, sizeof(msg), "Path %s is not a directory or a supported file format", abs_path);
+                display_temp_message(msg);
+                free(abs_path);
                 return;
         }
 
-        DIR *dir = opendir(path);
-        if (dir == NULL) {
+        // Open directory
+        DIR *dir = opendir(abs_path);
+        if (!dir) {
                 perror("opendir");
+                free(abs_path);
                 return;
         }
 
@@ -54,35 +71,102 @@ static void walk(const char *path, Str_Array *arr) {
                         continue;
                 }
 
-                // Build full path to file
-                char subpath[1024] = {0};
-                snprintf(subpath, sizeof(subpath), "%s/%s", path, entry->d_name);
+                // Build full absolute subpath
+                char subpath[PATH_MAX];
+                snprintf(subpath, sizeof(subpath), "%s/%s", abs_path, entry->d_name);
 
-                if (stat(subpath, &st) == -1) {
+                // Verify subpath is valid by getting its absolute path
+                char *abs_subpath = realpath(subpath, NULL);
+                if (!abs_subpath) {
+                        perror("realpath");
+                        continue; // Skip invalid paths
+                }
+
+                if (stat(abs_subpath, &st) == -1) {
                         perror("stat");
+                        free(abs_subpath);
                         continue;
                 }
 
                 // Check if it's a regular file and a music file
                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) {
-                        dyn_array_append(*arr, strdup(subpath));
+                        dyn_array_append(*arr, strdup(abs_subpath));
                 } else if (S_ISDIR(st.st_mode) && (g_flags & FT_RECURSIVE)) {
-                        walk(subpath, arr);
+                        // Recursive call with absolute subpath
+                        walk(abs_subpath, arr);
                 }
+
+                free(abs_subpath);
         }
 
         closedir(dir);
+        free(abs_path);
 }
 
-Str_Array io_flatten_dirs(const Str_Array *dirs) {
-        Str_Array arr;
-        dyn_array_init_type(arr);
+/* static void walk(const char *path, Str_Array *arr) { */
+/*         struct stat st; */
+/*         if (stat(path, &st) == -1) { */
+/*                 perror("stat"); */
+/*                 return; */
+/*         } */
+
+/*         if (S_ISREG(st.st_mode) && is_music_f(path)) { */
+/*                 dyn_array_append(*arr, strdup(path)); */
+/*                 return; */
+/*         } */
+
+/*         // If it's not a directory, return (only directories are walked) */
+/*         if (!S_ISDIR(st.st_mode)) { */
+/*                 printf("filepath %s is not a directory or a file in a supported format", path); */
+/*                 return; */
+/*         } */
+
+/*         DIR *dir = opendir(path); */
+/*         if (dir == NULL) { */
+/*                 perror("opendir"); */
+/*                 return; */
+/*         } */
+
+/*         struct dirent *entry; */
+/*         while ((entry = readdir(dir)) != NULL) { */
+/*                 // Skip "." and ".." */
+/*                 if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) { */
+/*                         continue; */
+/*                 } */
+
+/*                 // Build full path to file */
+/*                 char subpath[1024] = {0}; */
+/*                 snprintf(subpath, sizeof(subpath), "%s/%s", path, entry->d_name); */
+
+/*                 if (stat(subpath, &st) == -1) { */
+/*                         perror("stat"); */
+/*                         continue; */
+/*                 } */
+
+/*                 // Check if it's a regular file and a music file */
+/*                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) { */
+/*                         dyn_array_append(*arr, strdup(subpath)); */
+/*                 } else if (S_ISDIR(st.st_mode) && (g_flags & FT_RECURSIVE)) { */
+/*                         walk(subpath, arr); */
+/*                 } */
+/*         } */
+
+/*         closedir(dir); */
+/* } */
+
+Playlist_Array io_flatten_dirs(const Str_Array *dirs) {
+        Playlist_Array pa = dyn_array_empty(Playlist_Array);
 
         for (size_t i = 0; i < dirs->len; ++i) {
+                Str_Array arr = dyn_array_empty(Str_Array);
                 walk(dirs->data[i], &arr);
+                dyn_array_append(pa, ((Playlist) {
+                        .songfps = arr,
+                        .name = dirs->data[i],
+                }));
         }
 
-        return arr;
+        return pa;
 }
 
 static char *get_config_fp(void) {

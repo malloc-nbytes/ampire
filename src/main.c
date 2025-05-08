@@ -63,25 +63,23 @@ int main(int argc, char **argv) {
         }
 
         Playlist_Array playlists = io_read_config_file();
-        Str_Array cli_songfps = io_flatten_dirs(&dirs);
+        Playlist_Array cli_playlists = io_flatten_dirs(&dirs);
 
         // If the user just wants to clear the saved songs
         // and don't provide any music to open.
-        if ((g_flags & FT_CLR_SAVED_SONGS) && cli_songfps.len == 0) {
+        if ((g_flags & FT_CLR_SAVED_SONGS) && cli_playlists.len == 0) {
                 exit(0);
         }
 
-        if (cli_songfps.len > 0) {
-                /* for (size_t i = 0; i < cli_songfps.len; ++i) { */
-                /*         dyn_array_append(playlists, ((Playlist) { */
-                /*             .songfps = cli_songfps, */
-                /*             .name = dirs.data[i], */
-                /*         })); */
-                /* } */
-                dyn_array_append(playlists, ((Playlist) {
-                        .songfps = cli_songfps,
-                        .name = "unnamed",
-                }));
+        if (cli_playlists.len > 0) {
+                for (size_t i = 0; i < cli_playlists.len; ++i) {
+                        dyn_array_append(playlists, cli_playlists.data[i]);
+                }
+        }
+
+        if (playlists.len > 9) {
+                printf("Ampire currently only supports up to 9 separate playlists");
+                exit(1);
         }
 
         run(&playlists);

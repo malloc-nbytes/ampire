@@ -35,8 +35,6 @@ typedef struct {
         size_t scroll_offset;
         int sel_fst_song;
         int paused;                      // Is the song currently paused
-        int saved;                       // Triggers song save [ctrl+s]
-        Uint64 saved_last_ticks;
         Music_Adv_Type mat;              // What happens after the song ends, normal, shuffle, or loop
         ssize_t currently_playing_index; // Currently playing music index into `songfps`
         Mix_Music *current_music;        // Currently playing music
@@ -59,12 +57,11 @@ static WINDOW *right_win; // Window for currently playing info
 static void pause_audio(Ctx *ctx);
 
 static void cleanup(void) {
-        assert(g_ctx);
         if (left_win) delwin(left_win);
         if (right_win) delwin(right_win);
         Mix_HookMusicFinished(NULL);
         Mix_HaltMusic();
-        if (g_ctx->current_music) {
+        if (g_ctx && g_ctx->current_music) {
                 Mix_FreeMusic(g_ctx->current_music);
                 g_ctx->current_music = NULL;
         }
@@ -262,6 +259,8 @@ static void seek_music(Ctx *ctx, double seconds) {
 }
 
 static void handle_key_up(Ctx *ctx) {
+        if (!ctx) return;
+
         if (ctx->songfps->len == 0) return;
 
         // Move selection up, wrapping to the end if at the top
@@ -276,6 +275,8 @@ static void handle_key_up(Ctx *ctx) {
 }
 
 static void handle_key_down(Ctx *ctx) {
+        if (!ctx) return;
+
         if (ctx->songfps->len == 0) return;
 
         // Move selection down, wrapping to the start if at the end
@@ -290,10 +291,12 @@ static void handle_key_down(Ctx *ctx) {
 }
 
 static void handle_key_right(Ctx *ctx) {
+        if (!ctx) return;
         seek_music(ctx, 10.0);
 }
 
 static void handle_key_left(Ctx *ctx) {
+        if (!ctx) return;
         seek_music(ctx, -10.0);
 }
 
@@ -363,7 +366,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
         (void)iota(1);
 
         // Display currently playing info in right window (inside borders)
-        if (ctx->currently_playing_index != -1) {
+        if (ctx && ctx->currently_playing_index != -1) {
                 // "Now Playing" animation
                 const char *base_text = "-=-=- Now Playing -=-=";
                 int base_len = strlen(base_text); // 22 characters
@@ -403,9 +406,11 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                         mvwprintw(right_win, iota(1), 1, "Elapsed: [%s]", time_str);
                 }
 
-                mvwprintw(right_win, iota(1), 1, "Advance: %s",
-                          ctx->mat == MAT_NORMAL ? "Normal" :
-                          ctx->mat == MAT_SHUFFLE ? "Shuffle" : "Loop");
+                mvwprintw(right_win, iota(0), 1, "Advance: ");
+                wattron(right_win, A_REVERSE | A_BLINK);
+                mvwprintw(right_win, iota(1), strlen("Advance: ")+1, "%s",
+                          ctx->mat == MAT_NORMAL ? "Normal" : ctx->mat == MAT_SHUFFLE ? "Shuffle" : "Loop");
+                wattroff(right_win, A_REVERSE | A_BLINK);
 
                 if (ctx->history_idxs.len > 0) {
                         size_t start = ctx->history_idxs.len > 5 ? ctx->history_idxs.len - 5 : 0;
@@ -433,7 +438,9 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                         }
                 }
         } else {
-                mvwprintw(right_win, iota(1), 1, "Playlist: %s", ctx->pname);
+                if (ctx) {
+                        mvwprintw(right_win, iota(1), 1, "Playlist: %s", ctx->pname);
+                }
                 mvwprintw(right_win, iota(1), 1, "No Song Playing");
         }
         wrefresh(right_win);
@@ -447,18 +454,11 @@ static void draw_song_list(Ctx *ctx) {
         getmaxyx(left_win, max_y, max_x);
         size_t visible_rows = max_y - 2; // Account for borders
 
-        if (ctx->songfps->len == 0) {
+        if (!ctx) {
                 mvwprintw(left_win, 1, 1, "No Music! Press [f] to select music! (unimplemented)");
         }
 
-        if (ctx->saved) {
-                Uint64 t = SDL_GetTicks();
-                if (t > ctx->saved_last_ticks + 1500) {
-                        ctx->saved = 0;
-                } else {
-                        mvwprintw(left_win, 1, 1, "Saved !");
-                }
-        } else {
+        if (ctx) {
                 // Display songs starting from scroll_offset (for scrolling)
                 for (size_t i = ctx->scroll_offset; i < ctx->songfps->len && i < ctx->scroll_offset + visible_rows; ++i) {
                         size_t display_row = i - ctx->scroll_offset + 1; // Row relative to window (1 to avoid top border)
@@ -483,7 +483,7 @@ static void draw_song_list(Ctx *ctx) {
 }
 
 static void resize_windows(int sig) {
-        assert(g_ctx);
+        if (!g_ctx) return;
 
         endwin();
         refresh();
@@ -547,7 +547,7 @@ static void handle_adv_type(Ctx *ctx) {
 }
 
 static void handle_next_song(Ctx *ctx) {
-        if (ctx->currently_playing_index == -1 || !ctx->current_music || !ctx->sel_fst_song) {
+        if (!ctx || ctx->currently_playing_index == -1 || !ctx->current_music || !ctx->sel_fst_song) {
                 return;
         }
 
@@ -558,7 +558,7 @@ static void handle_next_song(Ctx *ctx) {
 }
 
 static void handle_prev_song(Ctx *ctx) {
-        if (ctx->currently_playing_index == -1 || !ctx->current_music || !ctx->sel_fst_song) {
+        if (!ctx || ctx->currently_playing_index == -1 || !ctx->current_music || !ctx->sel_fst_song) {
                 return;
         }
 
@@ -658,6 +658,8 @@ char *get_userin(const char *message, const char *autofill) {
 }
 
 static void handle_search(Ctx *ctx, size_t startfrom, int rev, char *prevsearch) {
+        if (!ctx) return;
+
         char *query = NULL;
         if (prevsearch) {
                 query = prevsearch;
@@ -703,8 +705,6 @@ Ctx ctx_create(const Playlist *p) {
                 .scroll_offset = 0,
                 .sel_fst_song = 0,
                 .paused = 0,
-                .saved = 0,
-                .saved_last_ticks = 0,
                 .mat = MAT_NORMAL,
                 .currently_playing_index = -1,
                 .current_music = NULL,
@@ -721,6 +721,7 @@ Ctx ctx_create(const Playlist *p) {
 }
 
 static void save_playlist(Ctx *ctx) {
+        if (!ctx) return;
         char *name = NULL;
         while (1) {
                 name = get_userin("Enter Playlist Name:", ctx->pname);
@@ -738,8 +739,6 @@ static void save_playlist(Ctx *ctx) {
                 }
         }
         assert(name);
-        /* ctx->saved = 1; */
-        /* ctx->saved_last_ticks = SDL_GetTicks(); */
         io_write_to_config_file(name, ctx->songfps);
         display_temp_message("Saved!");
         ctx->pname = name;
@@ -792,9 +791,6 @@ void run(const Playlist_Array *playlists) {
                 } break;
                 case CTRL('s'): {
                         save_playlist(g_ctx);
-                        /* ctx->saved = 1; */
-                        /* ctx->saved_last_ticks = SDL_GetTicks(); */
-                        /* io_write_to_config_file(ctx->songfps); */
                 } break;
                 case 'k':
                 case KEY_UP: {
@@ -829,12 +825,12 @@ void run(const Playlist_Array *playlists) {
                         handle_prev_song(g_ctx);
                 } break;
                 case 'n': {
-                        if (g_ctx->sel_songfps_index < g_ctx->songnames.len-1) {
+                        if (g_ctx && g_ctx->sel_songfps_index < g_ctx->songnames.len-1) {
                                 handle_search(g_ctx, g_ctx->sel_songfps_index+1, 0, g_ctx->prevsearch);
                         }
                 } break;
                 case 'N': {
-                        if (g_ctx->sel_songfps_index > 0) {
+                        if (g_ctx && g_ctx->sel_songfps_index > 0) {
                                 handle_search(g_ctx, g_ctx->sel_songfps_index-1, 1, g_ctx->prevsearch);
                         }
                 } break;
@@ -843,7 +839,7 @@ void run(const Playlist_Array *playlists) {
                 } break;
                 case 'd':
                 case 'D': {
-                        if (io_del_playlist(g_ctx->pname)) {
+                        if (g_ctx && io_del_playlist(g_ctx->pname)) {
                                 // TODO: handle memory
                                 dyn_array_rm_at(ctxs, ctx_idx);
                                 for (size_t i = ctx_idx; i < ctxs.len; ++i) {
@@ -852,7 +848,11 @@ void run(const Playlist_Array *playlists) {
                                 if (ctx_idx >= ctxs.len) {
                                         ctx_idx = ctxs.len-1;
                                 }
-                                g_ctx = &ctxs.data[ctx_idx];
+                                if (ctxs.len == 0) {
+                                        g_ctx = NULL;
+                                } else {
+                                        g_ctx = &ctxs.data[ctx_idx];
+                                }
                         }
                 } break;
                 case 'f': {
@@ -864,6 +864,7 @@ void run(const Playlist_Array *playlists) {
                         assert(0 && "selecting files is unimplemented");
                 } break;
                 case ENTER: {
+                        if (!g_ctx) break;
                         for (size_t i = 0; i < ctxs.len; ++i) {
                                 if (ctxs.data[i].uuid != g_ctx->uuid) {
                                         ctxs.data[i].currently_playing_index = -1;
