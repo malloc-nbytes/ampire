@@ -5,7 +5,7 @@
 
 typedef struct {
         Str_Array songfps;
-        const char *name;
+        char *name;
 } Playlist;
 
 DYN_ARRAY_TYPE(Playlist, Playlist_Array);

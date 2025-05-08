@@ -4,6 +4,7 @@
 #include <regex.h>
 #include <signal.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3_mixer/SDL_mixer.h>
@@ -13,15 +14,10 @@
 #include "ampire-display.h"
 #include "ampire-flag.h"
 #include "ampire-io.h"
+#include "ampire-ncurses-helpers.h"
 #include "dyn_array.h"
 
 #define Mix_GetError    SDL_GetError
-
-#define CTRL(x) ((x) & 0x1F)
-#define BACKSPACE 263
-#define ESCAPE 27
-#define ENTER 10
-#define SPACE 32
 
 typedef enum {
         MAT_NORMAL,
@@ -32,7 +28,7 @@ typedef enum {
 typedef struct {
         size_t uuid;
         const Str_Array *songfps;
-        const char *pname;               // Playlist name
+        char *pname;               // Playlist name
         Str_Array songnames;             // The stripped songname from the path
         Size_T_Array history_idxs;
         size_t sel_songfps_index;
@@ -585,46 +581,68 @@ static void handle_prev_song(Ctx *ctx) {
         adjust_scroll_offset(ctx);
 }
 
-static char *get_search(void) {
+char *get_userin(const char *message, const char *autofill) {
         int max_y, max_x;
         getmaxyx(stdscr, max_y, max_x);
 
-        // Define dimensions (3 rows x 30 columns, including borders)
-        int win_height = 3;
-        int win_width = 30;
-        int start_y = (max_y - win_height) / 2; // Center vertically
-        int start_x = (max_x - win_width) / 2;  // Center horizontally
+        // Calculate window dimensions
+        int win_width = 30; // Fixed width for simplicity
+        int win_height = message ? 4 : 3; // 4 if message (2 borders, 1 message, 1 input), 3 if no message
+        if (message && strlen(message) + 4 > win_width) {
+                win_width = strlen(message) + 4; // Adjust width to fit message + padding
+        }
+        if (autofill && strlen(autofill) + 4 > win_width) {
+                win_width = strlen(autofill) + 4; // Adjust width to fit autofill + padding
+        }
+        if (win_width > max_x * 0.8) win_width = max_x * 0.8; // Cap at 80% of screen width
 
-        WINDOW *search_win = newwin(win_height, win_width, start_y, start_x);
-        if (!search_win) {
-                return NULL; // Failed to create window
+        // Center the window
+        int start_y = (max_y - win_height) / 2;
+        int start_x = (max_x - win_width) / 2;
+
+        // Create window
+        WINDOW *input_win = newwin(win_height, win_width, start_y, start_x);
+        if (!input_win) return NULL;
+
+        // Draw box
+        box(input_win, 0, 0);
+
+        // Display message if provided
+        if (message) {
+                mvwprintw(input_win, 1, 2, "%.*s", win_width - 4, message);
         }
 
-        box(search_win, 0, 0);
-
-        // 27 chars max to fit inside borders with padding
-        char input[28] = {0}; // +1 for null
+        // Initialize input buffer (27 chars max to fit inside borders)
+        char input[28] = {0};
         size_t input_len = 0;
 
+        // Autofill input if provided
+        if (autofill) {
+                strncpy(input, autofill, sizeof(input) - 1);
+                input[sizeof(input) - 1] = '\0'; // Ensure null-termination
+                input_len = strlen(input);
+        }
+
         // Enable input settings
-        keypad(search_win, TRUE);
-        nodelay(search_win, FALSE); // Block for input
+        keypad(input_win, TRUE);
+        nodelay(input_win, FALSE); // Block for input
         echo();
 
         int ch;
         while (1) {
-                mvwprintw(search_win, 1, 1, "%-*s", win_width - 2, input);
-                wrefresh(search_win);
+                // Display input
+                mvwprintw(input_win, win_height - 2, 2, "%-*s", win_width - 4, input);
+                wrefresh(input_win);
 
-                ch = wgetch(search_win);
+                ch = wgetch(input_win);
 
                 if (ch == ENTER) {
-                        delwin(search_win);
+                        delwin(input_win);
                         noecho();
                         return input_len > 0 ? strdup(input) : strdup("");
                 } else if (ch == ESCAPE || ch == CTRL('c')) {
                         // Cancel input
-                        delwin(search_win);
+                        delwin(input_win);
                         noecho();
                         return NULL;
                 } else if (ch == BACKSPACE || ch == 127) {
@@ -644,7 +662,7 @@ static void handle_search(Ctx *ctx, size_t startfrom, int rev, char *prevsearch)
         if (prevsearch) {
                 query = prevsearch;
         } else {
-                query = get_search();
+                query = get_userin("Entery Query (RegEx Supported):", NULL);
                 if (!query) return;
                 ctx->prevsearch = strdup(query);
         }
@@ -702,6 +720,31 @@ Ctx ctx_create(const Playlist *p) {
         return ctx;
 }
 
+static void save_playlist(Ctx *ctx) {
+        char *name = NULL;
+        while (1) {
+                name = get_userin("Enter Playlist Name:", ctx->pname);
+                if (!name) {
+                        display_temp_message("Cancelling");
+                        return;
+                } else if (!strcmp(name, "")) {
+                        display_temp_message("Name Cannot be Empty");
+                } else if (!strcmp(name, "unnamed")) {
+                        if (prompt_yes_no("Name is set to `unnamed`, continue?")) {
+                                break;
+                        }
+                } else {
+                        break;
+                }
+        }
+        assert(name);
+        /* ctx->saved = 1; */
+        /* ctx->saved_last_ticks = SDL_GetTicks(); */
+        io_write_to_config_file(name, ctx->songfps);
+        display_temp_message("Saved!");
+        ctx->pname = name;
+}
+
 // Does not take ownership of playlists
 void run(const Playlist_Array *playlists) {
         srand((unsigned int)time(NULL));
@@ -733,10 +776,10 @@ void run(const Playlist_Array *playlists) {
 
                 if (isdigit(ch)) {
                         int idx = (ch-'0') - 1;
-                        if (idx < playlists->len) {
+                        if (idx < ctxs.len) {
                                 ctx_idx = idx;
                                 g_ctx = &ctxs.data[ctx_idx];
-                                continue;
+                                //continue;
                         }
                 }
 
@@ -748,7 +791,7 @@ void run(const Playlist_Array *playlists) {
                         resize_windows(1);
                 } break;
                 case CTRL('s'): {
-                        assert(0);
+                        save_playlist(g_ctx);
                         /* ctx->saved = 1; */
                         /* ctx->saved_last_ticks = SDL_GetTicks(); */
                         /* io_write_to_config_file(ctx->songfps); */
@@ -798,6 +841,20 @@ void run(const Playlist_Array *playlists) {
                 case '/': {
                         handle_search(g_ctx, 0, 0, NULL);
                 } break;
+                case 'd':
+                case 'D': {
+                        if (io_del_playlist(g_ctx->pname)) {
+                                // TODO: handle memory
+                                dyn_array_rm_at(ctxs, ctx_idx);
+                                for (size_t i = ctx_idx; i < ctxs.len; ++i) {
+                                        --ctxs.data[i].uuid;
+                                }
+                                if (ctx_idx >= ctxs.len) {
+                                        ctx_idx = ctxs.len-1;
+                                }
+                                g_ctx = &ctxs.data[ctx_idx];
+                        }
+                } break;
                 case 'f': {
                         char const *const filter_patterns[] = {"*.wav", "*.ogg", "*.mp3", "*.opus"};
                         char *path = tinyfd_openFileDialog("Select a directory", ".",
@@ -807,6 +864,11 @@ void run(const Playlist_Array *playlists) {
                         assert(0 && "selecting files is unimplemented");
                 } break;
                 case ENTER: {
+                        for (size_t i = 0; i < ctxs.len; ++i) {
+                                if (ctxs.data[i].uuid != g_ctx->uuid) {
+                                        ctxs.data[i].currently_playing_index = -1;
+                                }
+                        }
                         start_song(g_ctx);
                         dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index);
                 } break;

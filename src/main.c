@@ -72,8 +72,14 @@ int main(int argc, char **argv) {
         }
 
         if (cli_songfps.len > 0) {
+                /* for (size_t i = 0; i < cli_songfps.len; ++i) { */
+                /*         dyn_array_append(playlists, ((Playlist) { */
+                /*             .songfps = cli_songfps, */
+                /*             .name = dirs.data[i], */
+                /*         })); */
+                /* } */
                 dyn_array_append(playlists, ((Playlist) {
-                        .songfps = dyn_array_empty(Str_Array),
+                        .songfps = cli_songfps,
                         .name = "unnamed",
                 }));
         }

@@ -9,6 +9,7 @@
 #include "ds/array.h"
 #include "dyn_array.h"
 #include "ampire-flag.h"
+#include "ampire-ncurses-helpers.h"
 
 static int is_music_f(const char *fp) {
         size_t last = 0;
@@ -96,7 +97,7 @@ static char *get_config_fp(void) {
 
 #include <ncurses.h>
 
-void io_write_to_config_file(const Str_Array *filepaths) {
+void io_write_to_config_file(const char *pname, const Str_Array *filepaths) {
         char *configfp = get_config_fp();
         FILE *f = fopen(configfp, "a");
 
@@ -124,6 +125,8 @@ void io_write_to_config_file(const Str_Array *filepaths) {
         WINDOW *win = newwin(win_height, win_width, start_y, start_x);
         box(win, 0, 0);
 
+        fprintf(f, "__ampire-playlist\n");
+        fprintf(f, "%s\n", pname);
         for (size_t i = 0; i < filepaths->len; ++i) {
                 wmove(win, 1, 1);
                 wclrtoeol(win); // Clear the line to the end
@@ -196,4 +199,162 @@ done:
         free(configfp);
         fclose(f);
         return playlists;
+}
+
+int io_del_playlist(const char *pname) {
+        if (!pname) {
+                display_temp_message("No playlist name provided!");
+                return 0;
+        }
+
+        // Confirm deletion with user
+        char prompt[256];
+        snprintf(prompt, sizeof(prompt), "Delete playlist '%s'?", pname);
+        if (!prompt_yes_no(prompt)) {
+                display_temp_message("Playlist deletion cancelled.");
+                return 0;
+        }
+
+        // Get config file path
+        char *configfp = get_config_fp();
+        if (!configfp) {
+                display_temp_message("Failed to get config file path!");
+                return 0;
+        }
+
+        // Open file for reading
+        FILE *f = fopen(configfp, "r");
+        if (!f) {
+                perror("fopen");
+                display_temp_message("Failed to open config file for reading!");
+                free(configfp);
+                return 0;
+        }
+
+        // Read all lines into a dynamic array
+        Str_Array old_lines = dyn_array_empty(Str_Array);
+        char *line = NULL;
+        size_t len = 0;
+        ssize_t read;
+
+        while ((read = getline(&line, &len, f)) != -1) {
+                // Remove trailing newline if present
+                if (read > 0 && line[read - 1] == '\n') {
+                        line[read - 1] = '\0';
+                        read--;
+                }
+                // Skip empty lines when storing
+                if (read == 0 || !strcmp(line, "")) {
+                        continue;
+                }
+                // Duplicate line for storage
+                char *copy = strdup(line);
+                if (!copy) {
+                        perror("strdup");
+                        display_temp_message("Memory allocation failed!");
+                        fclose(f);
+                        free(line);
+                        free(configfp);
+                        dyn_array_free(old_lines);
+                        return 0;
+                }
+                dyn_array_append(old_lines, copy);
+        }
+
+        // Check for read errors
+        if (ferror(f)) {
+                perror("fread");
+                display_temp_message("Error reading config file!");
+                fclose(f);
+                free(line);
+                free(configfp);
+                dyn_array_free(old_lines);
+                return 0;
+        }
+        fclose(f);
+        free(line);
+
+        // Filter out the target playlist
+        Str_Array new_lines = dyn_array_empty(Str_Array);
+        int skip = 0; // Flag to skip lines in the target playlist
+        int expect_name = 0; // Flag to expect playlist name after __ampire-playlist
+
+        for (size_t i = 0; i < old_lines.len; i++) {
+                char *current_line = old_lines.data[i];
+
+                if (!strcmp(current_line, "__ampire-playlist")) {
+                        // Start of a new playlist
+                        skip = 0;
+                        expect_name = 1;
+                        dyn_array_append(new_lines, strdup(current_line));
+                        continue;
+                }
+
+                if (expect_name) {
+                        // This is the playlist name
+                        expect_name = 0;
+                        if (!strcmp(current_line, pname)) {
+                                // Target playlist found; skip it and its file paths
+                                skip = 1;
+                                // Remove the __ampire-playlist marker for this playlist
+                                dyn_array_rm_at(new_lines, new_lines.len - 1);
+                        } else {
+                                // Keep the playlist name
+                                dyn_array_append(new_lines, strdup(current_line));
+                        }
+                        continue;
+                }
+
+                if (!skip) {
+                        // Keep file paths or other lines not in the target playlist
+                        dyn_array_append(new_lines, strdup(current_line));
+                }
+        }
+
+        // Open file for writing
+        f = fopen(configfp, "w");
+        if (!f) {
+                perror("fopen");
+                display_temp_message("Failed to open config file for writing!");
+                free(configfp);
+                dyn_array_free(old_lines);
+                dyn_array_free(new_lines);
+                return 0;
+        }
+
+        // Write filtered lines
+        for (size_t i = 0; i < new_lines.len; i++) {
+                if (fprintf(f, "%s\n", new_lines.data[i]) < 0) {
+                        perror("fprintf");
+                        display_temp_message("Error writing to config file!");
+                        fclose(f);
+                        free(configfp);
+                        dyn_array_free(old_lines);
+                        dyn_array_free(new_lines);
+                        return 0;
+                }
+        }
+
+        // Check for write errors
+        if (ferror(f)) {
+                perror("fwrite");
+                display_temp_message("Error writing to config file!");
+                fclose(f);
+                free(configfp);
+                dyn_array_free(old_lines);
+                dyn_array_free(new_lines);
+                return 0;
+        }
+
+        fclose(f);
+        free(configfp);
+
+        dyn_array_free(old_lines);
+        dyn_array_free(new_lines);
+
+        char success_msg[256];
+        snprintf(success_msg, sizeof(success_msg), "Playlist '%s' deleted.", pname);
+        display_temp_message(success_msg);
+
+        return 1;
 }
