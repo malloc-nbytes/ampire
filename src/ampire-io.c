@@ -149,8 +149,8 @@ void io_clear_config_file(void) {
         free(configfp);
 }
 
-Str_Array io_read_config_file(void) {
-        Str_Array filepaths; dyn_array_init_type(filepaths);
+Playlist_Array io_read_config_file(void) {
+        Playlist_Array playlists; dyn_array_init_type(playlists);
 
         char *configfp = get_config_fp();
 
@@ -163,17 +163,37 @@ Str_Array io_read_config_file(void) {
         char *line = NULL;
         size_t len = 0;
         ssize_t read = 0;
+        int wait_playlist_name = 0;
+        ssize_t playlist_idx = -1;
         while((read = getline(&line, &len, f)) != -1) {
-                if (!strcmp(line, "\n")) continue;
-                if (line[read-1] == '\n') {
-                        line[read-1] = '\0';
+                if (!strcmp(line, "\n"))  continue;
+                if (line[read-1] == '\n') line[read-1] = '\0';
+
+                if (!strcmp(line, "__ampire-playlist")) {
+                        wait_playlist_name = 1;
+                } else if (wait_playlist_name) {
+                        wait_playlist_name = 0;
+                        Playlist p = {
+                                .songfps = dyn_array_empty(Str_Array),
+                                .name = strdup(line),
+                        };
+                        dyn_array_append(playlists, p);
+                        ++playlist_idx;
+                } else {
+                        dyn_array_append(playlists.data[playlist_idx].songfps, strdup(line));
                 }
-                dyn_array_append(filepaths, strdup(line));
         }
+
+        /* for (size_t i = 0; i < playlists.len; ++i) { */
+        /*         printf("%s:\n", playlists.data[i].name); */
+        /*         for (size_t j = 0; j < playlists.data[i].songfps.len; ++j) { */
+        /*                 printf("  %s\n", playlists.data[i].songfps.data[j]); */
+        /*         } */
+        /* } */
 
         free(line);
 done:
         free(configfp);
         fclose(f);
-        return filepaths;
+        return playlists;
 }
