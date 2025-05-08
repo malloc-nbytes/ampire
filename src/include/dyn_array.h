@@ -47,6 +47,13 @@
         size_t len, cap;         \
     } name
 
+#define dyn_array_empty(arr_ty)                 \
+        (arr_ty) {                              \
+                .data = NULL,                   \
+                .len = 0,                       \
+                .cap = 0,                       \
+        }
+
 //////////////////////////////////////////////////
 // Initializes a global array type. This is only
 // used if you use DYN_ARRAY_TYPE().
