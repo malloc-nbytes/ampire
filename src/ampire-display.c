@@ -16,6 +16,7 @@
 #include "ampire-io.h"
 #include "ampire-ncurses-helpers.h"
 #include "dyn_array.h"
+#include "config.h"
 
 #define Mix_GetError    SDL_GetError
 
@@ -352,6 +353,8 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
         box(right_win, 0, 0);
         int max_y, max_x;
         getmaxyx(right_win, max_y, max_x);
+
+        mvwprintw(right_win, iota(2), 1, "Ampire Version " VERSION);
 
         for (size_t i = 0; i < ctxs->len; ++i) {
                 if (i == ctx->uuid) {

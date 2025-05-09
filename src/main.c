@@ -8,6 +8,7 @@
 #include "ampire-io.h"
 #include "ampire-display.h"
 #include "ampire-flag.h"
+#include "config.h"
 
 #define FLAG_1HY_HELP 'h'
 #define FLAG_1HY_RECURSIVE 'r'
@@ -20,6 +21,16 @@
 size_t g_flags = 0x0;
 
 void usage(void) {
+        printf("(MIT License) Copyright (c) 2025 malloc-nbytes\n\n");
+        printf("Ampire v" VERSION ", (compiler) " COMPILER_INFO "\n\n");
+        printf("   (                                  \n");
+        printf("   )\\       )          (   (      (   \n");
+        printf("((((_)(    (     `  )  )\\  )(    ))\\  \n");
+        printf(" )\\ _ )\\   )\\  ' /(/( ((_)(()\\  /((_) \n");
+        printf(" (_)_\\(_)_((_)) ((_)_\\ (_) ((_)(_))   \n");
+        printf("  / _ \\ | '  \\()| '_ \\)| || '_|/ -_)  \n");
+        printf(" /_/ \\_\\|_|_|_| | .__/ |_||_|  \\___|  \n");
+        printf("                |_|                  \n\n");
         printf("Usage: ampire <dir> [options...]\n");
         printf("Options:\n");
         printf("    -%c, --%s         print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);

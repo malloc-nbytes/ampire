@@ -1,0 +1,5 @@
+#pragma once
+
+#define PREFIX "@CMAKE_INSTALL_PREFIX@"
+#define VERSION "@PROJECT_VERSION@"
+#define COMPILER_INFO "@COMPILER_INFO@"
