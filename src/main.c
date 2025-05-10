@@ -20,6 +20,8 @@
 
 size_t g_flags = 0x0;
 
+// TODO: fix memory leaks
+
 void usage(void) {
         printf("(MIT License) Copyright (c) 2025 malloc-nbytes\n\n");
         printf("Ampire v" VERSION ", (compiler) " COMPILER_INFO "\n\n");
