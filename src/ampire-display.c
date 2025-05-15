@@ -723,7 +723,9 @@ static void handle_search(Ctx *ctx, size_t startfrom, int rev, char *prevsearch)
                 }
         }
         if (found == -1) {
-                tinyfd_notifyPopup("[ampire]: Could not find song", query, "warning");
+                if (g_flags & FT_NOTIF) {
+                        tinyfd_notifyPopup("[ampire]: Could not find song", query, "warning");
+                }
                 return;
         }
 
