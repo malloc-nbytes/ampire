@@ -103,57 +103,6 @@ static void walk(const char *path, Str_Array *arr) {
         free(abs_path);
 }
 
-/* static void walk(const char *path, Str_Array *arr) { */
-/*         struct stat st; */
-/*         if (stat(path, &st) == -1) { */
-/*                 perror("stat"); */
-/*                 return; */
-/*         } */
-
-/*         if (S_ISREG(st.st_mode) && is_music_f(path)) { */
-/*                 dyn_array_append(*arr, strdup(path)); */
-/*                 return; */
-/*         } */
-
-/*         // If it's not a directory, return (only directories are walked) */
-/*         if (!S_ISDIR(st.st_mode)) { */
-/*                 printf("filepath %s is not a directory or a file in a supported format", path); */
-/*                 return; */
-/*         } */
-
-/*         DIR *dir = opendir(path); */
-/*         if (dir == NULL) { */
-/*                 perror("opendir"); */
-/*                 return; */
-/*         } */
-
-/*         struct dirent *entry; */
-/*         while ((entry = readdir(dir)) != NULL) { */
-/*                 // Skip "." and ".." */
-/*                 if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) { */
-/*                         continue; */
-/*                 } */
-
-/*                 // Build full path to file */
-/*                 char subpath[1024] = {0}; */
-/*                 snprintf(subpath, sizeof(subpath), "%s/%s", path, entry->d_name); */
-
-/*                 if (stat(subpath, &st) == -1) { */
-/*                         perror("stat"); */
-/*                         continue; */
-/*                 } */
-
-/*                 // Check if it's a regular file and a music file */
-/*                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) { */
-/*                         dyn_array_append(*arr, strdup(subpath)); */
-/*                 } else if (S_ISDIR(st.st_mode) && (g_flags & FT_RECURSIVE)) { */
-/*                         walk(subpath, arr); */
-/*                 } */
-/*         } */
-
-/*         closedir(dir); */
-/* } */
-
 Playlist_Array io_flatten_dirs(const Str_Array *dirs) {
         Playlist_Array pa = dyn_array_empty(Playlist_Array);
 
@@ -163,6 +112,7 @@ Playlist_Array io_flatten_dirs(const Str_Array *dirs) {
                 dyn_array_append(pa, ((Playlist) {
                         .songfps = arr,
                         .name = dirs->data[i],
+                        .from_cli = 1,
                 }));
         }
 
@@ -263,6 +213,7 @@ Playlist_Array io_read_config_file(void) {
                         Playlist p = {
                                 .songfps = dyn_array_empty(Str_Array),
                                 .name = strdup(line),
+                                .from_cli = 0,
                         };
                         dyn_array_append(playlists, p);
                         ++playlist_idx;
@@ -271,12 +222,12 @@ Playlist_Array io_read_config_file(void) {
                 }
         }
 
-        /* for (size_t i = 0; i < playlists.len; ++i) { */
-        /*         printf("%s:\n", playlists.data[i].name); */
-        /*         for (size_t j = 0; j < playlists.data[i].songfps.len; ++j) { */
-        /*                 printf("  %s\n", playlists.data[i].songfps.data[j]); */
-        /*         } */
-        /* } */
+        // for (size_t i = 0; i < playlists.len; ++i) {
+        //         printf("Playlist: %s:\n", playlists.data[i].name);
+        //         for (size_t j = 0; j < playlists.data[i].songfps.len; ++j) {
+        //                 printf("  load: %s\n", playlists.data[i].songfps.data[j]);
+        //         }
+        // }
 
         free(line);
 done:
@@ -436,9 +387,9 @@ int io_del_playlist(const char *pname) {
         dyn_array_free(old_lines);
         dyn_array_free(new_lines);
 
-        char success_msg[256];
-        snprintf(success_msg, sizeof(success_msg), "Playlist '%s' deleted.", pname);
-        display_temp_message(success_msg);
+        //char success_msg[256];
+        //snprintf(success_msg, sizeof(success_msg), "Playlist '%s' deleted.", pname);
+        //display_temp_message(success_msg);
 
         return 1;
 }

@@ -6,6 +6,7 @@
 typedef struct {
         Str_Array songfps;
         char *name;
+        int from_cli;
 } Playlist;
 
 DYN_ARRAY_TYPE(Playlist, Playlist_Array);

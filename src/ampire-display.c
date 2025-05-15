@@ -729,7 +729,7 @@ static void save_playlist(Ctx *ctx) {
         while (1) {
                 name = get_userin("Enter Playlist Name:", ctx->pname);
                 if (!name) {
-                        display_temp_message("Cancelling");
+                        //display_temp_message("Cancelling");
                         return;
                 } else if (!strcmp(name, "")) {
                         display_temp_message("Name Cannot be Empty");
@@ -743,7 +743,7 @@ static void save_playlist(Ctx *ctx) {
         }
         assert(name);
         io_write_to_config_file(name, ctx->songfps);
-        display_temp_message("Saved!");
+        //display_temp_message("Saved!");
         ctx->pname = name;
 }
 
@@ -751,10 +751,14 @@ static void save_playlist(Ctx *ctx) {
 void run(const Playlist_Array *playlists) {
         srand((unsigned int)time(NULL));
         Ctx_Array ctxs = dyn_array_empty(Ctx_Array);
+        size_t initial_ctx = 0;
         for (size_t i = 0; i < playlists->len; ++i) {
                 dyn_array_append(ctxs, ctx_create(&playlists->data[i]));
+                if (playlists->data[i].from_cli) {
+                        initial_ctx = i;
+                }
         }
-        g_ctx = &ctxs.data[0];
+        g_ctx = &ctxs.data[initial_ctx];
 
         SDL_SetLogPriorities(SDL_LOG_PRIORITY_ERROR);
 
