@@ -45,6 +45,8 @@ typedef struct {
         char *prevsearch;                // Previous search used for [n] and [N]
 } Ctx;
 
+static int g_volume = 68;
+
 DYN_ARRAY_TYPE(Ctx, Ctx_Array);
 
 // Used for SDL function(s) with sig (*)(void) but
@@ -162,6 +164,8 @@ static void play_music(Ctx *ctx, const char *song) {
                 SDL_Quit();
                 exit(1);
         }
+
+        Mix_VolumeMusic(g_volume);
 
         // Play once to allow music_finished callback
         if (Mix_PlayMusic(ctx->current_music, 1) < 0) {
@@ -354,7 +358,14 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
         int max_y, max_x;
         getmaxyx(right_win, max_y, max_x);
 
-        mvwprintw(right_win, iota(2), 1, "Ampire Version " VERSION);
+        mvwprintw(right_win, iota(1), 1, "   (");
+        mvwprintw(right_win, iota(1), 1, "   )\\       )          (   (      (");
+        mvwprintw(right_win, iota(1), 1, "((((_)(    (     `  )  )\\  )(    ))\\");
+        mvwprintw(right_win, iota(1), 1, " )\\ _ )\\   )\\  ' /(/( ((_)(()\\  /((_)");
+        mvwprintw(right_win, iota(1), 1, " (_)_\\(_)_((_)) ((_)_\\ (_) ((_)(_))");
+        mvwprintw(right_win, iota(1), 1, "  / _ \\ | '  \\()| '_ \\)| || '_|/ -_)");
+        mvwprintw(right_win, iota(1), 1, " /_/ \\_\\|_|_|_| | .__/ |_||_|  \\___| v" VERSION);
+        mvwprintw(right_win, iota(2), 1, "                |_|");
 
         for (size_t i = 0; i < ctxs->len; ++i) {
                 if (i == ctx->uuid) {
@@ -409,9 +420,9 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                         mvwprintw(right_win, iota(1), 1, "Elapsed: [%s]", time_str);
                 }
 
-                mvwprintw(right_win, iota(0), 1, "Advance: ");
+                mvwprintw(right_win, iota(0), 1, "Mode: ");
                 wattron(right_win, A_REVERSE | A_BLINK);
-                mvwprintw(right_win, iota(1), strlen("Advance: ")+1, "%s",
+                mvwprintw(right_win, iota(1), strlen("Mode: ")+1, "%s",
                           ctx->mat == MAT_NORMAL ? "Normal" : ctx->mat == MAT_SHUFFLE ? "Shuffle" : "Loop");
                 wattroff(right_win, A_REVERSE | A_BLINK);
 
@@ -445,6 +456,30 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                         mvwprintw(right_win, iota(1), 1, "Playlist: %s", ctx->pname);
                 }
                 mvwprintw(right_win, iota(1), 1, "No Song Playing");
+        }
+
+        iota(4);
+        int total_blocks = 12; // Each block represents ~10% of volume
+        int filled_blocks = (g_volume * total_blocks + MIX_MAX_VOLUME) / MIX_MAX_VOLUME; // Round up
+        mvwprintw(right_win, iota(0), 1, "Volume: [");
+        //wattron(right_win, A_REVERSE); // Highlight filled blocks
+        if (g_volume == 0) {
+                mvwprintw(right_win, iota(0), strlen("Volume: [") + 1, "MUTE");
+        } else {
+                for (int i = 0; i < total_blocks+1; i++) {
+                    if (i < filled_blocks) {
+                            waddch(right_win, '*'); // Filled block
+                    } else {
+                            //wattroff(right_win, A_REVERSE);
+                            waddch(right_win, ' '); // Empty space
+                            //wattron(right_win, A_REVERSE);
+                    }
+                }
+        }
+        //wattroff(right_win, A_REVERSE);
+        waddch(right_win, ']');
+        if (g_volume > 0) {
+                mvwprintw(right_win, iota(1), total_blocks + strlen("Volume: [") + 4, "%d%%", (g_volume*100)/MIX_MAX_VOLUME);
         }
         wrefresh(right_win);
 }
@@ -747,6 +782,24 @@ static void save_playlist(Ctx *ctx) {
         ctx->pname = name;
 }
 
+static void volume_up(Ctx *ctx) {
+        if (!ctx) return;
+        g_volume += 10;
+        if (g_volume > MIX_MAX_VOLUME) {
+                g_volume = MIX_MAX_VOLUME;
+        }
+        Mix_VolumeMusic(g_volume);
+}
+
+static void volume_down(Ctx *ctx) {
+        if (!ctx) return;
+        g_volume -= 10;
+        if (g_volume < 0) {
+                g_volume = 0;
+        }
+        Mix_VolumeMusic(g_volume);
+}
+
 // Does not take ownership of playlists
 void run(const Playlist_Array *playlists) {
         srand((unsigned int)time(NULL));
@@ -843,6 +896,14 @@ void run(const Playlist_Array *playlists) {
                 } break;
                 case '/': {
                         handle_search(g_ctx, 0, 0, NULL);
+                } break;
+                case '-':
+                case '_': {
+                        volume_down(g_ctx);
+                } break;
+                case '=':
+                case '+': {
+                        volume_up(g_ctx);
                 } break;
                 case 'd':
                 case 'D': {
