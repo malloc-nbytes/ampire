@@ -358,14 +358,16 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
         int max_y, max_x;
         getmaxyx(right_win, max_y, max_x);
 
-        mvwprintw(right_win, iota(1), 1, "   (");
-        mvwprintw(right_win, iota(1), 1, "   )\\       )          (   (      (");
-        mvwprintw(right_win, iota(1), 1, "((((_)(    (     `  )  )\\  )(    ))\\");
-        mvwprintw(right_win, iota(1), 1, " )\\ _ )\\   )\\  ' /(/( ((_)(()\\  /((_)");
-        mvwprintw(right_win, iota(1), 1, " (_)_\\(_)_((_)) ((_)_\\ (_) ((_)(_))");
-        mvwprintw(right_win, iota(1), 1, "  / _ \\ | '  \\()| '_ \\)| || '_|/ -_)");
-        mvwprintw(right_win, iota(1), 1, " /_/ \\_\\|_|_|_| | .__/ |_||_|  \\___| v" VERSION);
-        mvwprintw(right_win, iota(2), 1, "                |_|");
+        if (!(g_flags & FT_DISABLE_PLAYER_LOGO)) {
+                mvwprintw(right_win, iota(1), 1, "   (");
+                mvwprintw(right_win, iota(1), 1, "   )\\       )          (   (      (");
+                mvwprintw(right_win, iota(1), 1, "((((_)(    (     `  )  )\\  )(    ))\\");
+                mvwprintw(right_win, iota(1), 1, " )\\ _ )\\   )\\  ' /(/( ((_)(()\\  /((_)");
+                mvwprintw(right_win, iota(1), 1, " (_)_\\(_)_((_)) ((_)_\\ (_) ((_)(_))");
+                mvwprintw(right_win, iota(1), 1, "  / _ \\ | '  \\()| '_ \\)| || '_|/ -_)");
+                mvwprintw(right_win, iota(1), 1, " /_/ \\_\\|_|_|_| | .__/ |_||_|  \\___| v" VERSION);
+                mvwprintw(right_win, iota(2), 1, "                |_|");
+        }
 
         for (size_t i = 0; i < ctxs->len; ++i) {
                 if (i == ctx->uuid) {

@@ -18,6 +18,7 @@
 #define FLAG_2HY_RECURSIVE "recursive"
 #define FLAG_2HY_CLR_SAVED_SONGS "clear"
 #define FLAG_2HY_SHOW_SAVES "show-saves"
+#define FLAG_2HY_DISABLE_PLAYER_LOGO "no-player-logo"
 
 size_t g_flags = 0x0;
 
@@ -34,13 +35,14 @@ void usage(void) {
         printf("  / _ \\ | '  \\()| '_ \\)| || '_|/ -_)  \n");
         printf(" /_/ \\_\\|_|_|_| | .__/ |_||_|  \\___|  \n");
         printf("                |_|                  \n\n");
-        printf("Usage: ampire <dir> [options...]\n");
+        printf("Usage: ampire [dir...] [options...]\n");
         printf("Options:\n");
-        printf("    -%c, --%s         print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
-        printf("    -%c, --%s    enable recursive search for songs\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
-        printf("    -%c, --%s        clear saved songs in config file\n", FLAG_1HY_CLR_SAVED_SONGS, FLAG_2HY_CLR_SAVED_SONGS);
-        printf("        --%s        display notifications on song change\n", FLAG_2HY_NOTIF);
-        printf("        --%s   print all saved songs\n", FLAG_2HY_SHOW_SAVES);
+        printf("    -%c, --%s             print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
+        printf("    -%c, --%s        enable recursive search for songs\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
+        printf("    -%c, --%s            clear saved songs in config file\n", FLAG_1HY_CLR_SAVED_SONGS, FLAG_2HY_CLR_SAVED_SONGS);
+        printf("        --%s            display notifications on song change\n", FLAG_2HY_NOTIF);
+        printf("        --%s       print all saved songs\n", FLAG_2HY_SHOW_SAVES);
+        printf("        --%s   do not show the logo in the player\n", FLAG_2HY_DISABLE_PLAYER_LOGO);
         exit(0);
 }
 
@@ -68,7 +70,10 @@ int main(int argc, char **argv) {
                         g_flags |= FT_CLR_SAVED_SONGS;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_SHOW_SAVES)) {
                         g_flags |= FT_SHOW_SAVES;
-                } else if (arg.hyphc > 0) {
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_DISABLE_PLAYER_LOGO)) {
+                        g_flags |= FT_DISABLE_PLAYER_LOGO;
+                }
+                else if (arg.hyphc > 0) {
                         err_wargs("invalid flag: %s", arg.start);
                 } else {
                         dyn_array_append(dirs, arg.start);
