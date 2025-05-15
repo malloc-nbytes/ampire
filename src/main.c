@@ -17,6 +17,7 @@
 #define FLAG_2HY_NOTIF "notif"
 #define FLAG_2HY_RECURSIVE "recursive"
 #define FLAG_2HY_CLR_SAVED_SONGS "clear"
+#define FLAG_2HY_SHOW_SAVES "show-saves"
 
 size_t g_flags = 0x0;
 
@@ -39,6 +40,7 @@ void usage(void) {
         printf("    -%c, --%s    enable recursive search for songs\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
         printf("    -%c, --%s        clear saved songs in config file\n", FLAG_1HY_CLR_SAVED_SONGS, FLAG_2HY_CLR_SAVED_SONGS);
         printf("        --%s        display notifications on song change\n", FLAG_2HY_NOTIF);
+        printf("        --%s   print all saved songs\n", FLAG_2HY_SHOW_SAVES);
         exit(0);
 }
 
@@ -64,6 +66,8 @@ int main(int argc, char **argv) {
                         g_flags |= FT_RECURSIVE;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_CLR_SAVED_SONGS)) {
                         g_flags |= FT_CLR_SAVED_SONGS;
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_SHOW_SAVES)) {
+                        g_flags |= FT_SHOW_SAVES;
                 } else if (arg.hyphc > 0) {
                         err_wargs("invalid flag: %s", arg.start);
                 } else {

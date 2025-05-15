@@ -222,12 +222,15 @@ Playlist_Array io_read_config_file(void) {
                 }
         }
 
-        // for (size_t i = 0; i < playlists.len; ++i) {
-        //         printf("Playlist: %s:\n", playlists.data[i].name);
-        //         for (size_t j = 0; j < playlists.data[i].songfps.len; ++j) {
-        //                 printf("  load: %s\n", playlists.data[i].songfps.data[j]);
-        //         }
-        // }
+        if (g_flags & FT_SHOW_SAVES) {
+            for (size_t i = 0; i < playlists.len; ++i) {
+                    printf("Playlist: %s:\n", playlists.data[i].name);
+                    for (size_t j = 0; j < playlists.data[i].songfps.len; ++j) {
+                            printf("  load: %s\n", playlists.data[i].songfps.data[j]);
+                    }
+            }
+            exit(0);
+        }
 
         free(line);
 done:
