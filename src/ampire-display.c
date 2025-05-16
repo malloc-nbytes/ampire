@@ -434,7 +434,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 int filled_blocks = (g_volume * total_blocks + MIX_MAX_VOLUME) / MIX_MAX_VOLUME; // Round up
                 mvwprintw(right_win, iota(0), 1, "Volume: [");
                 if (g_volume == 0) {
-                        mvwprintw(right_win, iota(0), strlen("Volume: [") + 1, "MUTE");
+                        mvwprintw(right_win, iota(1), strlen("Volume: [") + 1, "MUTE");
                 } else {
                         for (int i = 0; i < total_blocks+1; i++) {
                             if (i < filled_blocks) {
