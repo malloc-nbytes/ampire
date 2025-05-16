@@ -44,26 +44,27 @@ then try running it again.
 
 ** Controls
 
-| Keybinds      | Action                                                    |
-|---------------+-----------------------------------------------------------|
-| [DOWN], [j]   | Move down in the song selection                           |
-| [UP], [k]     | Move up in the song selection                             |
-| [RIGHT], [l]  | Seek forward in the music 10 seconds                      |
-| [LEFT], [h]   | Seek backward in the music 10 seconds                     |
-| [.], [>], [L] | Next song                                                 |
-| [,], [<], [H] | Previous song from history                                |
-| [-], [_]      | Volume down                                               |
-| [+], [=]      | Volume up                                                 |
-| [a]           | Toggle song advancement between normal, shuffle, and loop |
-| [SPACE]       | Pause / play                                              |
-| [f]           | Open a file dialogue (unimplemented)                      |
-| [/]           | Search the song list with regex                           |
-| [n]           | Search for next match                                     |
-| [N]           | Search for previous match                                 |
-| [d]           | Delete song list                                          |
-| [ENTER]       | Play song from song list                                  |
-| [CTRL+l]      | Redraw screen (if you resize the screen, run this)        |
-| [CTRL+q]      | Quit                                                      |
-| [CTRL+s]      | Save song list                                            |
-| [1..=9]       | Select song list                                          |
+| Keybinds            | Action                                                    |
+|---------------------+-----------------------------------------------------------|
+| [ DOWN ], [ j ]     | Move down in the song selection                           |
+| [ UP ], [ k ]       | Move up in the song selection                             |
+| [ RIGHT ], [ l ]    | Seek forward in the music 10 seconds                      |
+| [ LEFT ], [ h ]     | Seek backward in the music 10 seconds                     |
+| [ . ], [ > ], [ L ] | Next song                                                 |
+| [ , ], [ < ], [ H ] | Previous song from history                                |
+| [ - ], [ _ ]        | Volume down                                               |
+| [ + ], [ = ]        | Volume up                                                 |
+| [ a ]               | Toggle song advancement between normal, shuffle, and loop |
+| [ m ]               | Mute/unmute                                               |
+| [ SPACE ]           | Pause / play                                              |
+| [ f ]               | Open a file dialogue (unimplemented)                      |
+| [ / ]               | Search the song list with regex                           |
+| [ n ]               | Search for next match                                     |
+| [ N ]               | Search for previous match                                 |
+| [ d ]               | Delete song list                                          |
+| [ ENTER ]           | Play song from song list                                  |
+| [ CTRL+l ]          | Redraw screen (if you resize the screen, run this)        |
+| [ CTRL+q ]          | Quit                                                      |
+| [ CTRL+s ]          | Save song list                                            |
+| [ 1..=9 ]           | Select song list                                          |
 

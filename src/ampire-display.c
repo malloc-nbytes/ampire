@@ -46,6 +46,7 @@ typedef struct {
 } Ctx;
 
 static int g_volume = 68;
+static int g_last_volume = 0;
 
 DYN_ARRAY_TYPE(Ctx, Ctx_Array);
 
@@ -381,7 +382,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
 
         (void)iota(1);
 
-        // Display currently playing info in right window (inside borders)
+        // Display currently playing info in right window
         if (ctx && ctx->currently_playing_index != -1) {
                 // "Now Playing" animation
                 //const char *base_text = "-=-=- Now Playing -=-=";
@@ -405,7 +406,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 wattroff(right_win, A_BOLD);
 
                 mvwprintw(right_win, iota(1), 1, "Playlist: %s", ctx->pname);
-                mvwprintw(right_win, iota(1), 1, "%.*s", max_x - 2, ctx->songnames.data[ctx->currently_playing_index]);
+                mvwprintw(right_win, iota(1), 1, "Track: %.*s", max_x - 2, ctx->songnames.data[ctx->currently_playing_index]);
 
                 Uint64 current_ticks = SDL_GetTicks();
                 Uint64 elapsed_ms = ctx->paused ? (ctx->pause_start - ctx->start_ticks - ctx->paused_ticks)
@@ -429,6 +430,26 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                           ctx->mat == MAT_NORMAL ? "Normal" : ctx->mat == MAT_SHUFFLE ? "Shuffle" : "Loop");
                 wattroff(right_win, A_REVERSE | A_BLINK);
 
+                int total_blocks = 12; // Each block represents ~10% of volume
+                int filled_blocks = (g_volume * total_blocks + MIX_MAX_VOLUME) / MIX_MAX_VOLUME; // Round up
+                mvwprintw(right_win, iota(0), 1, "Volume: [");
+                if (g_volume == 0) {
+                        mvwprintw(right_win, iota(0), strlen("Volume: [") + 1, "MUTE");
+                } else {
+                        for (int i = 0; i < total_blocks+1; i++) {
+                            if (i < filled_blocks) {
+                                    if (i+1 == filled_blocks) { waddch(right_win, '|'); }
+                                    else { waddch(right_win, '*'); }
+                            } else {
+                                    waddch(right_win, '.');
+                            }
+                        }
+                }
+                waddch(right_win, ']');
+                if (g_volume > 0) {
+                        mvwprintw(right_win, iota(1), total_blocks + strlen("Volume: [") + 4, "%d%%", (g_volume*100)/MIX_MAX_VOLUME);
+                }
+
                 if (ctx->history_idxs.len > 0) {
                         size_t start = ctx->history_idxs.len > 5 ? ctx->history_idxs.len - 5 : 0;
                         mvwprintw(right_win, iota(0), 1, "History");
@@ -447,8 +468,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                                         const char *equalizer_frames[] = {"|   ", "||  ", "||| ", "||||"};
                                         int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
                                         int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
-                                        mvwprintw(right_win, iota(0)+j, strlen(ctx->songnames.data[ctx->history_idxs.data[i]])+4, "%s", equalizer_frames[frame]);
-                                }
+                                        mvwprintw(right_win, iota(0)+j, strlen(ctx->songnames.data[ctx->history_idxs.data[i]])+4, "%s", equalizer_frames[frame]); }
                                 if (i != ctx->history_idxs.len - 1) {
                                         wattroff(right_win, A_DIM);
                                 }
@@ -462,25 +482,6 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 mvwprintw(right_win, iota(1), 1, "No Song Playing");
         }
 
-        //iota(5);
-        int total_blocks = 12; // Each block represents ~10% of volume
-        int filled_blocks = (g_volume * total_blocks + MIX_MAX_VOLUME) / MIX_MAX_VOLUME; // Round up
-        mvwprintw(right_win, iota(0), 1, "Volume: [");
-        if (g_volume == 0) {
-                mvwprintw(right_win, iota(0), strlen("Volume: [") + 1, "MUTE");
-        } else {
-                for (int i = 0; i < total_blocks+1; i++) {
-                    if (i < filled_blocks) {
-                            waddch(right_win, '*');
-                    } else {
-                            waddch(right_win, ' ');
-                    }
-                }
-        }
-        waddch(right_win, ']');
-        if (g_volume > 0) {
-                mvwprintw(right_win, iota(1), total_blocks + strlen("Volume: [") + 4, "%d%%", (g_volume*100)/MIX_MAX_VOLUME);
-        }
         wrefresh(right_win);
 }
 
@@ -802,6 +803,16 @@ static void volume_down(Ctx *ctx) {
         Mix_VolumeMusic(g_volume);
 }
 
+static void handle_mute(void) {
+        if (g_volume == 0) {
+                g_volume = g_last_volume;
+        } else {
+                g_last_volume = g_volume;
+                g_volume = 0;
+        }
+        Mix_VolumeMusic(g_volume);
+}
+
 // Does not take ownership of playlists
 void run(const Playlist_Array *playlists) {
         srand((unsigned int)time(NULL));
@@ -898,6 +909,9 @@ void run(const Playlist_Array *playlists) {
                 } break;
                 case '/': {
                         handle_search(g_ctx, 0, 0, NULL);
+                } break;
+                case 'm': {
+                        handle_mute();
                 } break;
                 case '-':
                 case '_': {
