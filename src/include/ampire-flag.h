@@ -9,7 +9,6 @@ enum {
         FT_CLR_SAVED_SONGS = 1 << 2,
         FT_SHOW_SAVES = 1 << 3,
         FT_DISABLE_PLAYER_LOGO = 1 << 4,
-        FT_VOLUME = 1 << 5,
 };
 
 extern size_t g_flags;

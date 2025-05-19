@@ -22,13 +22,16 @@
 #define FLAG_2HY_SHOW_SAVES "show-saves"
 #define FLAG_2HY_DISABLE_PLAYER_LOGO "no-player-logo"
 #define FLAG_2HY_VOLUME "volume"
+#define FLAG_2HY_PLAYLIST "playlist"
 
 size_t g_flags = 0x0;
 
 struct {
         int volume;
+        int playlist;
 } g_config = {
         .volume = -1,
+        .playlist = -1,
 };
 
 // TODO: fix memory leaks
@@ -53,6 +56,7 @@ void usage(void) {
         printf("        --%s       print all saved songs\n", FLAG_2HY_SHOW_SAVES);
         printf("        --%s   do not show the logo in the player\n", FLAG_2HY_DISABLE_PLAYER_LOGO);
         printf("        --%s=v         set the volume as `v` where 0 <= v <= 128 (note: not a percentage)\n", FLAG_2HY_VOLUME);
+        printf("        --%s=p       set the playlist to `p`\n", FLAG_2HY_PLAYLIST);
         exit(0);
 }
 
@@ -83,12 +87,15 @@ int main(int argc, char **argv) {
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_DISABLE_PLAYER_LOGO)) {
                         g_flags |= FT_DISABLE_PLAYER_LOGO;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_VOLUME)) {
-                        g_flags |= FT_VOLUME;
                         if (!arg.eq)              err("--volume expects a value after equals (=)\n");
                         if (!str_isdigit(arg.eq)) err_wargs("--volume expects a number, not `%s`\n", arg.eq);
                         int v = atoi(arg.eq);
                         if (v < 0 || v > 128)     err_wargs("volume level %d is out of range of [0..=128]", v);
                         g_config.volume = v;
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_PLAYLIST)) {
+                        if (!arg.eq)              err("--playlist expects a value after equals (=)\n");
+                        if (!str_isdigit(arg.eq)) err_wargs("--playlist expects a number, not `%s`\n", arg.eq);
+                        g_config.playlist = atoi(arg.eq);
                 } else if (arg.hyphc > 0) {
                         err_wargs("invalid flag: %s", arg.start);
                 } else {

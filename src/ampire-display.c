@@ -14,6 +14,7 @@
 #include "ampire-display.h"
 #include "ampire-flag.h"
 #include "ampire-io.h"
+#include "ampire-utils.h"
 #include "ampire-ncurses-helpers.h"
 #include "ampire-global.h"
 #include "dyn_array.h"
@@ -819,6 +820,8 @@ void run(const Playlist_Array *playlists) {
         srand((unsigned int)time(NULL));
         Ctx_Array ctxs = dyn_array_empty(Ctx_Array);
         size_t initial_ctx = 0;
+        size_t ctx_idx = 0;
+
         for (size_t i = 0; i < playlists->len; ++i) {
                 dyn_array_append(ctxs, ctx_create(&playlists->data[i]));
                 if (playlists->data[i].from_cli) {
@@ -827,8 +830,19 @@ void run(const Playlist_Array *playlists) {
         }
         g_ctx = &ctxs.data[initial_ctx];
 
-        SDL_SetLogPriorities(SDL_LOG_PRIORITY_ERROR);
+        if (g_config.volume != -1) {
+                g_volume = g_config.volume;
+        }
 
+        if (g_config.playlist != -1) {
+                if (g_config.playlist > ctxs.len || g_config.playlist < 1) {
+                        err_wargs("playlist %d is out of range of %zu", g_config.playlist, ctxs.len);
+                }
+                ctx_idx = g_config.playlist-1;
+                g_ctx = &ctxs.data[ctx_idx];
+        }
+
+        SDL_SetLogPriorities(SDL_LOG_PRIORITY_ERROR);
         atexit(cleanup);
 
         if (SDL_Init(SDL_INIT_AUDIO) < 0) {
@@ -837,14 +851,7 @@ void run(const Playlist_Array *playlists) {
         }
 
         init_ncurses();
-
         signal(SIGWINCH, resize_windows);
-
-        if (g_config.volume != -1) {
-                g_volume = g_config.volume;
-        }
-
-        size_t ctx_idx = 0;
 
         int ch;
         while (1) {
@@ -856,7 +863,6 @@ void run(const Playlist_Array *playlists) {
                         if (idx < ctxs.len) {
                                 ctx_idx = idx;
                                 g_ctx = &ctxs.data[ctx_idx];
-                                //continue;
                         }
                 }
 
