@@ -15,6 +15,7 @@
 #include "ampire-flag.h"
 #include "ampire-io.h"
 #include "ampire-ncurses-helpers.h"
+#include "ampire-global.h"
 #include "dyn_array.h"
 #include "config.h"
 
@@ -838,6 +839,10 @@ void run(const Playlist_Array *playlists) {
         init_ncurses();
 
         signal(SIGWINCH, resize_windows);
+
+        if (g_config.volume != -1) {
+                g_volume = g_config.volume;
+        }
 
         size_t ctx_idx = 0;
 
