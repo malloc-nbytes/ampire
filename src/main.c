@@ -77,6 +77,8 @@ int main(int argc, char **argv) {
                         g_config.flags |= FT_RECURSIVE;
                 } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_CLR_SAVED_SONGS) {
                         g_config.flags |= FT_CLR_SAVED_SONGS;
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_VERSION)) {
+                        version();
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_HELP)) {
                         usage();
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_NOTIF)) {

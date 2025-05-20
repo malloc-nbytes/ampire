@@ -175,6 +175,161 @@ void io_write_to_config_file(const char *pname, const Str_Array *filepaths) {
         fclose(f);
 }
 
+int io_replace_playlist_songs(const char *pname, const Str_Array *songfps) {
+        if (!pname || !songfps) {
+                display_temp_message("Invalid playlist name or song list!");
+                return 0;
+        }
+
+        // Get config file path
+        char *configfp = get_config_fp();
+        if (!configfp) {
+                display_temp_message("Failed to get config file path!");
+                return 0;
+        }
+
+        // Open file for reading
+        FILE *f = fopen(configfp, "r");
+        if (!f) {
+                perror("fopen");
+                display_temp_message("Failed to open config file for reading!");
+                free(configfp);
+                return 0;
+        }
+
+        // Read all lines into a dynamic array
+        Str_Array old_lines = dyn_array_empty(Str_Array);
+        char *line = NULL;
+        size_t len = 0;
+        ssize_t read;
+
+        while ((read = getline(&line, &len, f)) != -1) {
+                if (read > 0 && line[read - 1] == '\n') {
+                        line[read - 1] = '\0';
+                        read--;
+                }
+                if (read == 0 || !strcmp(line, "")) {
+                        continue;
+                }
+                char *copy = strdup(line);
+                if (!copy) {
+                        perror("strdup");
+                        display_temp_message("Memory allocation failed!");
+                        fclose(f);
+                        free(line);
+                        free(configfp);
+                        dyn_array_free(old_lines);
+                        return 0;
+                }
+                dyn_array_append(old_lines, copy);
+        }
+
+        if (ferror(f)) {
+                perror("fread");
+                display_temp_message("Error reading config file!");
+                fclose(f);
+                free(line);
+                free(configfp);
+                dyn_array_free(old_lines);
+                return 0;
+        }
+        fclose(f);
+        free(line);
+
+        // Create new lines, replacing songs for the target playlist
+        Str_Array new_lines = dyn_array_empty(Str_Array);
+        int skip = 0; // Flag to skip existing songs in the target playlist
+        int expect_name = 0; // Flag to expect playlist name after __ampire-playlist
+
+        for (size_t i = 0; i < old_lines.len; i++) {
+                char *current_line = old_lines.data[i];
+
+                if (!strcmp(current_line, "__ampire-playlist")) {
+                        skip = 0;
+                        expect_name = 1;
+                        dyn_array_append(new_lines, strdup(current_line));
+                        continue;
+                }
+
+                if (expect_name) {
+                        expect_name = 0;
+                        dyn_array_append(new_lines, strdup(current_line));
+                        if (!strcmp(current_line, pname)) {
+                                skip = 1; // Start skipping existing songs
+                                // Add new songs from songfps
+                                for (size_t j = 0; j < songfps->len; j++) {
+                                        char *song_copy = strdup(songfps->data[j]);
+                                        if (!song_copy) {
+                                                perror("strdup");
+                                                display_temp_message("Memory allocation failed!");
+                                                dyn_array_free(old_lines);
+                                                dyn_array_free(new_lines);
+                                                free(configfp);
+                                                return 0;
+                                        }
+                                        dyn_array_append(new_lines, song_copy);
+                                }
+                        }
+                        continue;
+                }
+
+                if (!skip) {
+                        // Keep lines that aren't part of the target playlist
+                        char *copy = strdup(current_line);
+                        if (!copy) {
+                                perror("strdup");
+                                display_temp_message("Memory allocation failed!");
+                                dyn_array_free(old_lines);
+                                dyn_array_free(new_lines);
+                                free(configfp);
+                                return 0;
+                        }
+                        dyn_array_append(new_lines, copy);
+                }
+        }
+
+        // Open file for writing
+        f = fopen(configfp, "w");
+        if (!f) {
+                perror("fopen");
+                display_temp_message("Failed to open config file for writing!");
+                free(configfp);
+                dyn_array_free(old_lines);
+                dyn_array_free(new_lines);
+                return 0;
+        }
+
+        // Write new lines
+        for (size_t i = 0; i < new_lines.len; i++) {
+                if (fprintf(f, "%s\n", new_lines.data[i]) < 0) {
+                        perror("fprintf");
+                        display_temp_message("Error writing to config file!");
+                        fclose(f);
+                        free(configfp);
+                        dyn_array_free(old_lines);
+                        dyn_array_free(new_lines);
+                        return 0;
+                }
+        }
+
+        if (ferror(f)) {
+                perror("fwrite");
+                display_temp_message("Error writing to config file!");
+                fclose(f);
+                free(configfp);
+                dyn_array_free(old_lines);
+                dyn_array_free(new_lines);
+                return 0;
+        }
+
+        fclose(f);
+        free(configfp);
+        dyn_array_free(old_lines);
+        dyn_array_free(new_lines);
+
+        return 1;
+}
+
 void io_clear_config_file(void) {
         char *configfp = get_config_fp();
         FILE *f = fopen(configfp, "w");
@@ -250,7 +405,6 @@ int io_del_playlist(const char *pname) {
         char prompt[256];
         snprintf(prompt, sizeof(prompt), "Delete playlist '%s'?", pname);
         if (!prompt_yes_no(prompt)) {
-                display_temp_message("Playlist deletion cancelled.");
                 return 0;
         }
 
@@ -390,10 +544,6 @@ int io_del_playlist(const char *pname) {
 
         dyn_array_free(old_lines);
         dyn_array_free(new_lines);
-
-        //char success_msg[256];
-        //snprintf(success_msg, sizeof(success_msg), "Playlist '%s' deleted.", pname);
-        //display_temp_message(success_msg);
 
         return 1;
 }

@@ -64,6 +64,7 @@ then try running it again.
 | [ d ]               | Delete song list                                          |
 | [ g ]               | Jump to first song                                        |
 | [ G ]               | Jump to last song                                         |
+| [ ! ]               | Remove duplicate tracks from playlist                     |
 | [ ENTER ]           | Play song from song list                                  |
 | [ CTRL+l ]          | Redraw screen (if you resize the screen, run this)        |
 | [ CTRL+q ]          | Quit                                                      |

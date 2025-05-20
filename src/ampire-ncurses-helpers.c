@@ -5,7 +5,7 @@
 
 #include "ampire-ncurses-helpers.h"
 
-void display_temp_message(const char *message) {
+void display_temp_message_wsleep(const char *message, int secs) {
         if (!message) return;
 
         int max_y, max_x;
@@ -46,7 +46,7 @@ void display_temp_message(const char *message) {
 
         wrefresh(msg_win);
 
-        for (int i = 1; i >= 0; --i) {
+        for (int i = secs; i >= 0; --i) {
                 mvwprintw(msg_win, win_height - 2, 2, "Closing in %d seconds...", i);
                 wrefresh(msg_win);
                 sleep(1);

@@ -9,5 +9,6 @@ Playlist_Array io_read_config_file(void);
 void io_write_to_config_file(const char *pname, const Str_Array *filepaths);
 void io_clear_config_file(void);
 int io_del_playlist(const char *pname);
+int io_replace_playlist_songs(const char *pname, const Str_Array *songfps);
 
 #endif // IO_H
