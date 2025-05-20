@@ -46,6 +46,7 @@ typedef struct {
         Uint64 pause_start;              // Time when pause began
         char *prevsearch;                // Previous search used for [n] and [N]
         int numtracks;                   // The number of songs in the playlist
+        int upnext_idx;
 } Ctx;
 
 static int g_volume = 68;
@@ -123,6 +124,20 @@ static void format_time(int seconds, char *buf, size_t bufsize) {
         int min = seconds / 60;
         int sec = seconds % 60;
         snprintf(buf, bufsize, "%02d:%02d", min, sec);
+}
+
+void handle_upnext(Ctx *ctx) {
+        size_t r = 0;
+        if (ctx->mat == MAT_NORMAL) {
+                r = (ctx->currently_playing_index + 1) % ctx->songfps->len;
+        } else if (ctx->mat == MAT_SHUFFLE) {
+                r = getrand(ctx);
+        } else {
+                r = ctx->currently_playing_index;
+        }
+        ctx->upnext_idx = r;
+        //ctx->currently_playing_index = ctx->sel_songfps_index = r;
+        //dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index);
 }
 
 static void play_music(Ctx *ctx, const char *song) {
@@ -207,19 +222,21 @@ static void start_song(Ctx *ctx) {
         ctx->pause_start = 0;
 
         ctx->sel_fst_song = 1;
+
+        handle_upnext(ctx);
 }
 
 static void music_finished(void) {
         assert(g_ctx);
-        size_t r = 0;
-        if (g_ctx->mat == MAT_NORMAL) {
-                r = (g_ctx->currently_playing_index + 1) % g_ctx->songfps->len;
-        } else if (g_ctx->mat == MAT_SHUFFLE) {
-                r = getrand(g_ctx);
-        } else if (g_ctx->mat == MAT_LOOP) {
-                r = g_ctx->currently_playing_index;
-        } else { assert(0); }
-        g_ctx->currently_playing_index = g_ctx->sel_songfps_index = r;
+        /* size_t r = 0; */
+        /* if (g_ctx->mat == MAT_NORMAL) { */
+        /*         r = (g_ctx->currently_playing_index + 1) % g_ctx->songfps->len; */
+        /* } else if (g_ctx->mat == MAT_SHUFFLE) { */
+        /*         r = getrand(g_ctx); */
+        /* } else if (g_ctx->mat == MAT_LOOP) { */
+        /*         r = g_ctx->currently_playing_index; */
+        /* } else { assert(0); } */
+        g_ctx->currently_playing_index = g_ctx->sel_songfps_index = g_ctx->upnext_idx;
         dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index);
         Mix_HaltMusic();
         start_song(g_ctx);
@@ -377,11 +394,11 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
 
         for (size_t i = 0; i < ctxs->len; ++i) {
                 if (i == ctx->uuid) {
-                        wattron(right_win, A_REVERSE | A_BLINK);
+                        wattron(right_win, A_REVERSE);
                 }
                 mvwprintw(right_win, iota(1), 1, "[ %zu ] %s", i+1, ctxs->data[i].pname);
                 if (i == ctx->uuid) {
-                        wattroff(right_win, A_REVERSE | A_BLINK);
+                        wattroff(right_win, A_REVERSE);
                 }
         }
 
@@ -411,7 +428,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 wattroff(right_win, A_BOLD);
 
                 mvwprintw(right_win, iota(1), 1, "Playlist: %s (%d tracks)", ctx->pname, ctx->numtracks);
-                mvwprintw(right_win, iota(1), 1, "| Current: %.*s", max_x - 2, ctx->songnames.data[ctx->currently_playing_index]);
+                mvwprintw(right_win, iota(1), 1, "> Current: %.*s", max_x - 2, ctx->songnames.data[ctx->currently_playing_index]);
 
                 Uint64 current_ticks = SDL_GetTicks();
                 Uint64 elapsed_ms = ctx->paused ? (ctx->pause_start - ctx->start_ticks - ctx->paused_ticks)
@@ -426,7 +443,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                         mvwprintw(right_win, iota(1), 1, "Paused");
                         wattroff(right_win, A_REVERSE | A_BLINK);
                 } else {
-                        mvwprintw(right_win, iota(1), 1, "| Elapsed: %s", time_str);
+                        mvwprintw(right_win, iota(1), 1, "> Elapsed: %s", time_str);
                 }
 
                 (void)iota(1);
@@ -483,6 +500,11 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                                 }
                         }
                         iota(ctx->history_idxs.len >= 5 ? 5 : ctx->history_idxs.len);
+                        //mvwprintw(right_win, iota(0), 1, "Up Next: %s", ctx->songnames.data[ctx->upnext_idx]);
+                        wattron(right_win, A_REVERSE);
+                        mvwprintw(right_win, iota(0), 1, "Up Next");
+                        wattroff(right_win, A_REVERSE);
+                        mvwprintw(right_win, iota(1), strlen("Up Next")+1, " [%s]", ctx->songnames.data[ctx->upnext_idx]);
                 }
         } else {
                 if (ctx) {
@@ -592,6 +614,7 @@ static void handle_adv_type(Ctx *ctx) {
                         adjust_scroll_offset(ctx);
                 }
         }
+        handle_upnext(ctx);
 }
 
 static void handle_next_song(Ctx *ctx) {
@@ -617,8 +640,10 @@ static void handle_prev_song(Ctx *ctx) {
 
         if (time_played > 1 || ctx->history_idxs.len <= 1) {
                 // Restart current song
+                int old_upnext = ctx->upnext_idx;
                 ctx->sel_songfps_index = ctx->currently_playing_index = dyn_array_at(ctx->history_idxs, ctx->history_idxs.len - 1);
                 start_song(ctx);
+                ctx->upnext_idx = old_upnext;
         } else if (ctx->history_idxs.len > 1) {
                 // Play previous song from history
                 ctx->sel_songfps_index = ctx->currently_playing_index = dyn_array_at(ctx->history_idxs, ctx->history_idxs.len - 2);
@@ -763,6 +788,7 @@ Ctx ctx_create(const Playlist *p) {
                 .pause_start = 0,
                 .prevsearch = NULL,
                 .numtracks = p->songfps.len,
+                .upnext_idx = 0,
         };
         for (size_t i = 0; i < p->songfps.len; ++i) {
                 dyn_array_append(ctx.songnames,
@@ -970,7 +996,7 @@ void run(const Playlist_Array *playlists) {
                                                            sizeof(filter_patterns)/sizeof(*filter_patterns),
                                                            filter_patterns,
                                                            "Music Files", 1);
-                        assert(0 && "selecting files is unimplemented");
+                        exit(0);
                 } break;
                 case ENTER: {
                         if (!g_ctx) break;
