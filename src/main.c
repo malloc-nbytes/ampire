@@ -44,6 +44,7 @@ void usage(void) {
         printf("Usage: ampire [dir...] [options...]\n");
         printf("Options:\n");
         printf("    -%c, --%s             print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
+        printf("    -%c, --%s          view version\n", FLAG_1HY_VERSION, FLAG_2HY_VERSION);
         printf("    -%c, --%s        enable recursive search for songs\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
         printf("    -%c, --%s            clear saved songs in config file\n", FLAG_1HY_CLR_SAVED_SONGS, FLAG_2HY_CLR_SAVED_SONGS);
         printf("        --%s            display notifications on song change\n", FLAG_2HY_NOTIF);
