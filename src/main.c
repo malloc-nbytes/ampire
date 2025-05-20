@@ -15,6 +15,7 @@
 #define FLAG_1HY_HELP 'h'
 #define FLAG_1HY_RECURSIVE 'r'
 #define FLAG_1HY_CLR_SAVED_SONGS 'c'
+#define FLAG_1HY_VERSION 'v'
 #define FLAG_2HY_HELP "help"
 #define FLAG_2HY_NOTIF "notif"
 #define FLAG_2HY_RECURSIVE "recursive"
@@ -23,6 +24,7 @@
 #define FLAG_2HY_DISABLE_PLAYER_LOGO "no-player-logo"
 #define FLAG_2HY_VOLUME "volume"
 #define FLAG_2HY_PLAYLIST "playlist"
+#define FLAG_2HY_VERSION "version"
 
 size_t g_flags = 0x0;
 
@@ -39,14 +41,6 @@ struct {
 void usage(void) {
         printf("(MIT License) Copyright (c) 2025 malloc-nbytes\n\n");
         printf("Ampire v" VERSION ", (compiler) " COMPILER_INFO "\n\n");
-        printf("   (                                  \n");
-        printf("   )\\       )          (   (      (   \n");
-        printf("((((_)(    (     `  )  )\\  )(    ))\\  \n");
-        printf(" )\\ _ )\\   )\\  ' /(/( ((_)(()\\  /((_) \n");
-        printf(" (_)_\\(_)_((_)) ((_)_\\ (_) ((_)(_))   \n");
-        printf("  / _ \\ | '  \\()| '_ \\)| || '_|/ -_)  \n");
-        printf(" /_/ \\_\\|_|_|_| | .__/ |_||_|  \\___|  \n");
-        printf("                |_|                  \n\n");
         printf("Usage: ampire [dir...] [options...]\n");
         printf("Options:\n");
         printf("    -%c, --%s             print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
@@ -60,6 +54,11 @@ void usage(void) {
         exit(0);
 }
 
+static void version(void) {
+        printf("Ampire v" VERSION "\n");
+        exit(0);
+}
+
 int main(int argc, char **argv) {
         --argc, ++argv;
         clap_init(argc, argv);
@@ -70,6 +69,8 @@ int main(int argc, char **argv) {
         while (clap_next(&arg)) {
                 if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_HELP) {
                         usage();
+                } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_VERSION) {
+                        version();
                 } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_RECURSIVE) {
                         g_flags |= FT_RECURSIVE;
                 } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_CLR_SAVED_SONGS) {
