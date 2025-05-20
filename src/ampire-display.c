@@ -211,7 +211,7 @@ static void start_song(Ctx *ctx) {
         play_music(ctx, ctx->songfps->data[ctx->sel_songfps_index]);
         ctx->paused = 0;
 
-        if (g_flags & FT_NOTIF) {
+        if (g_config.flags & FT_NOTIF) {
                 tinyfd_notifyPopup("[ampire]: Up Next", ctx->songnames.data[ctx->sel_songfps_index], "info");
         }
 
@@ -366,7 +366,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
 
         //int half_width = max_x/2;
 
-        if (!(g_flags & FT_DISABLE_PLAYER_LOGO)) {
+        if (!(g_config.flags & FT_DISABLE_PLAYER_LOGO)) {
                 mvwprintw(right_win, iota(1), 1, "   (");
                 mvwprintw(right_win, iota(1), 1, "   )\\       )          (   (      (");
                 mvwprintw(right_win, iota(1), 1, "((((_)(    (     `  )  )\\  )(    ))\\");
@@ -741,7 +741,7 @@ static void handle_search(Ctx *ctx, size_t startfrom, int rev, char *prevsearch)
                 }
         }
         if (found == -1) {
-                if (g_flags & FT_NOTIF) {
+                if (g_config.flags & FT_NOTIF) {
                         tinyfd_notifyPopup("[ampire]: Could not find song", query, "warning");
                 }
                 return;

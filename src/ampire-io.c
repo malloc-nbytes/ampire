@@ -11,6 +11,7 @@
 #include "dyn_array.h"
 #include "ampire-flag.h"
 #include "ampire-ncurses-helpers.h"
+#include "ampire-global.h"
 
 static int is_music_f(const char *fp) {
         size_t last = 0;
@@ -91,7 +92,7 @@ static void walk(const char *path, Str_Array *arr) {
                 // Check if it's a regular file and a music file
                 if (S_ISREG(st.st_mode) && is_music_f(entry->d_name)) {
                         dyn_array_append(*arr, strdup(abs_subpath));
-                } else if (S_ISDIR(st.st_mode) && (g_flags & FT_RECURSIVE)) {
+                } else if (S_ISDIR(st.st_mode) && (g_config.flags & FT_RECURSIVE)) {
                         // Recursive call with absolute subpath
                         walk(abs_subpath, arr);
                 }
@@ -222,7 +223,7 @@ Playlist_Array io_read_config_file(void) {
                 }
         }
 
-        if (g_flags & FT_SHOW_SAVES) {
+        if (g_config.flags & FT_SHOW_SAVES) {
             for (size_t i = 0; i < playlists.len; ++i) {
                     printf("Playlist: %s:\n", playlists.data[i].name);
                     for (size_t j = 0; j < playlists.data[i].songfps.len; ++j) {

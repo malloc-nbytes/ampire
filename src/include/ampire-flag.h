@@ -11,6 +11,4 @@ enum {
         FT_DISABLE_PLAYER_LOGO = 1 << 4,
 };
 
-extern size_t g_flags;
-
 #endif // FLAG_H

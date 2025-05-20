@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdint.h>
 
 #define CLAP_IMPL
 #include "clap.h"
@@ -26,12 +27,12 @@
 #define FLAG_2HY_PLAYLIST "playlist"
 #define FLAG_2HY_VERSION "version"
 
-size_t g_flags = 0x0;
-
 struct {
+        uint32_t flags;
         int volume;
         int playlist;
 } g_config = {
+        .flags = 0x0,
         .volume = -1,
         .playlist = -1,
 };
@@ -73,21 +74,21 @@ int main(int argc, char **argv) {
                 } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_VERSION) {
                         version();
                 } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_RECURSIVE) {
-                        g_flags |= FT_RECURSIVE;
+                        g_config.flags |= FT_RECURSIVE;
                 } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_CLR_SAVED_SONGS) {
-                        g_flags |= FT_CLR_SAVED_SONGS;
+                        g_config.flags |= FT_CLR_SAVED_SONGS;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_HELP)) {
                         usage();
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_NOTIF)) {
-                        g_flags |= FT_NOTIF;
+                        g_config.flags |= FT_NOTIF;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_RECURSIVE)) {
-                        g_flags |= FT_RECURSIVE;
+                        g_config.flags |= FT_RECURSIVE;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_CLR_SAVED_SONGS)) {
-                        g_flags |= FT_CLR_SAVED_SONGS;
+                        g_config.flags |= FT_CLR_SAVED_SONGS;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_SHOW_SAVES)) {
-                        g_flags |= FT_SHOW_SAVES;
+                        g_config.flags |= FT_SHOW_SAVES;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_DISABLE_PLAYER_LOGO)) {
-                        g_flags |= FT_DISABLE_PLAYER_LOGO;
+                        g_config.flags |= FT_DISABLE_PLAYER_LOGO;
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_VOLUME)) {
                         if (!arg.eq)              err("--volume expects a value after equals (=)\n");
                         if (!str_isdigit(arg.eq)) err_wargs("--volume expects a number, not `%s`\n", arg.eq);
@@ -105,7 +106,7 @@ int main(int argc, char **argv) {
                 }
         }
 
-        if (g_flags & FT_CLR_SAVED_SONGS) {
+        if (g_config.flags & FT_CLR_SAVED_SONGS) {
                 io_clear_config_file();
         }
 
@@ -114,7 +115,7 @@ int main(int argc, char **argv) {
 
         // If the user just wants to clear the saved songs
         // and don't provide any music to open.
-        if ((g_flags & FT_CLR_SAVED_SONGS) && cli_playlists.len == 0) {
+        if ((g_config.flags & FT_CLR_SAVED_SONGS) && cli_playlists.len == 0) {
                 exit(0);
         }
 
