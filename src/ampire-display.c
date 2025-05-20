@@ -18,6 +18,8 @@
 #include "ampire-ncurses-helpers.h"
 #include "ampire-global.h"
 #include "dyn_array.h"
+#include "ds/strmap.h"
+#include "ds/array.h"
 #include "config.h"
 
 #define Mix_GetError    SDL_GetError
@@ -47,6 +49,7 @@ typedef struct {
         char *prevsearch;                // Previous search used for [n] and [N]
         int numtracks;                   // The number of songs in the playlist
         int upnext_idx;                  // The index of the next song to be played
+        int playlist_modified;           // Has the current playlist been modified?
 } Ctx;
 
 static int g_volume = 68;
@@ -381,7 +384,12 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 if (i == ctx->uuid) {
                         wattron(right_win, A_REVERSE);
                 }
-                mvwprintw(right_win, iota(1), 1, "[ %zu ] %s", i+1, ctxs->data[i].pname);
+                mvwprintw(right_win, iota(0), 1, "[ %zu ] %s", i+1, ctxs->data[i].pname);
+                if (ctxs->data[i].playlist_modified) {
+                        const size_t N = strlen("[  ] ") + 1 + strlen(ctxs->data[i].pname) + 1;
+                        mvwprintw(right_win, iota(0), N, " (modified)");
+                }
+                (void)iota(1);
                 if (i == ctx->uuid) {
                         wattroff(right_win, A_REVERSE);
                 }
@@ -772,6 +780,7 @@ Ctx ctx_create(const Playlist *p) {
                 .prevsearch = NULL,
                 .numtracks = p->songfps.len,
                 .upnext_idx = 0,
+                .playlist_modified = 0,
         };
         for (size_t i = 0; i < p->songfps.len; ++i) {
                 dyn_array_append(ctx.songnames,
@@ -800,6 +809,7 @@ static void save_playlist(Ctx *ctx) {
         assert(name);
         io_write_to_config_file(name, ctx->songfps);
         ctx->pname = name;
+        ctx->playlist_modified = 0;
 }
 
 static void volume_up(Ctx *ctx) {
@@ -828,6 +838,12 @@ static void handle_mute(void) {
                 g_volume = 0;
         }
         Mix_VolumeMusic(g_volume);
+}
+
+void remove_duplicates(Ctx *ctx) {
+        if (prompt_yes_no("Remove duplicate tracks in playlist?")) {
+                ctx->playlist_modified = 1;
+        }
 }
 
 // Does not take ownership of playlists
@@ -887,6 +903,9 @@ void run(const Playlist_Array *playlists) {
                 case CTRL('q'): goto done;
                 case CTRL('l'): {
                         resize_windows(1);
+                } break;
+                case '!': {
+                        remove_duplicates(g_ctx);
                 } break;
                 case CTRL('s'): {
                         save_playlist(g_ctx);

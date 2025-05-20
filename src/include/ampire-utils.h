@@ -18,4 +18,6 @@
 
 int str_isdigit(const char *s);
 
+unsigned long djb2(const char *str);
+
 #endif // UTILS_H
