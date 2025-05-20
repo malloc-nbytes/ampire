@@ -853,24 +853,25 @@ static void handle_mute(void) {
 static void remove_duplicates(Ctx *ctx) {
         if (!prompt_yes_no("Remove duplicate tracks in playlist?")) return;
 
-        Str_Array found   = dyn_array_empty(Str_Array);
-        Str_Array tmp     = dyn_array_empty(Str_Array);
+        Str_Array found = dyn_array_empty(Str_Array);
+        Str_Array tmp = dyn_array_empty(Str_Array);
         Size_T_Array idxs = dyn_array_empty(Size_T_Array);
 
+        // Find duplicates
         for (size_t i = 0; i < ctx->songnames.len; ++i) {
-                int f = 0;
+                int is_duplicate = 0;
                 for (size_t j = 0; j < tmp.len; ++j) {
                         if (!strcmp(ctx->songnames.data[i], tmp.data[j])) {
-                                dyn_array_append(found, ctx->songnames.data[i]);
-                                f = 1;
+                                is_duplicate = 1;
                                 break;
                         }
                 }
-                if (f) {
+                if (is_duplicate) {
                         char buf[256] = {0};
                         sprintf(buf, "Duplicate: %s", ctx->songnames.data[i]);
                         display_temp_message_wsleep(buf, -1);
                         dyn_array_append(found, ctx->songnames.data[i]);
+                        dyn_array_append(idxs, i); // Collect index of duplicate
                 } else {
                         dyn_array_append(tmp, ctx->songnames.data[i]);
                 }
@@ -881,17 +882,18 @@ static void remove_duplicates(Ctx *ctx) {
                 goto cleanup;
         }
 
-        while (found.len) {
-                for (size_t i = 0; i < ctx->songnames.len; ++i) {
-                        if (!strcmp(found.data[i], ctx->songnames.data[i])) {
-                                dyn_array_append(idxs, i);
-                                dyn_array_rm_at(found, 0);
-                                goto d;
+        // Sort indices to avoid index shifting issues
+        for (size_t i = 0; i < idxs.len; ++i) {
+                for (size_t j = i + 1; j < idxs.len; ++j) {
+                        if (idxs.data[i] < idxs.data[j]) {
+                                size_t temp = idxs.data[i];
+                                idxs.data[i] = idxs.data[j];
+                                idxs.data[j] = temp;
                         }
                 }
-        d: (void)0;
         }
 
+        // Remove duplicates from songfps and songnames
         for (size_t i = 0; i < idxs.len; ++i) {
                 dyn_array_rm_at(*ctx->songfps, idxs.data[i]);
                 dyn_array_rm_at(ctx->songnames, idxs.data[i]);
