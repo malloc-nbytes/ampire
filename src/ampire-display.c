@@ -886,6 +886,14 @@ void run(const Playlist_Array *playlists) {
                 case KEY_UP: {
                         handle_key_up(g_ctx);
                 } break;
+                case 'g': {
+                        g_ctx->sel_songfps_index = 0;
+                        adjust_scroll_offset(g_ctx);
+                } break;
+                case 'G': {
+                        g_ctx->sel_songfps_index = g_ctx->songfps->len - 1;
+                        adjust_scroll_offset(g_ctx);
+                } break;
                 case 'j':
                 case KEY_DOWN: {
                         handle_key_down(g_ctx);
