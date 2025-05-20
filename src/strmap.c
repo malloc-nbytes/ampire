@@ -5,6 +5,10 @@
 #include "ds/strmap.h"
 #include "ampire-utils.h"
 
+static void strmap_default_val_free(uint8_t *v) {
+        free(v);
+}
+
 Str_Map strmap_create(strmap_hash_sig hash, strmap_destroy_val_sig destroy) {
         return (Str_Map) {
                 .tbl = {
@@ -13,7 +17,7 @@ Str_Map strmap_create(strmap_hash_sig hash, strmap_destroy_val_sig destroy) {
                         .cap = STRMAP_INIT_CAP,
                 },
                 .hash = hash ? hash : djb2,
-                .destroy = destroy,
+                .destroy = destroy ? destroy : strmap_default_val_free,
         };
 }
 
@@ -31,22 +35,37 @@ void strmap_insert(Str_Map *m, char *k, uint8_t *v) {
         m->tbl.len++;
 }
 
-/* void *s_umap_get(s_umap_t *map, const char *key) { */
-/*         if (!map || !key) return NULL; */
+uint8_t *strmap_get(Str_Map *m, const char *k) {
+        if (!m || !k) return NULL;
 
-/*         unsigned long index = map->hash(key) % map->cap; */
-/*         s_umap_bucket_t *bucket = map->tbl[index]; */
+        unsigned long index = m->hash(k) % m->tbl.cap;
+        __Str_Map_Node *bucket = m->tbl.buckets[index];
 
-/*         while (bucket) { */
-/*                 if (!strcmp(bucket->key, key)) */
-/*                         return bucket->value; */
-/*                 bucket = bucket->next; */
-/*         } */
+        while (bucket) {
+                if (!strcmp(bucket->k, k)) {
+                        return bucket->v;
+                }
+                bucket = bucket->n;
+        }
 
-/*         return NULL; */
-/* } */
+        return NULL;
+}
 
 
-/* int s_umap_contains(s_umap_t *map, const char *key) { */
-/*         return s_umap_get(map, key) != NULL; */
-/* } */
+int strmap_contains(Str_Map *m, const char *k) {
+        return strmap_get(m, k) != NULL;
+}
+
+void strmap_free(Str_Map *m) {
+        for (size_t i = 0; i < m->tbl.cap; ++i) {
+                if (m->tbl.buckets[i]) {
+                        free(m->tbl.buckets[i]->k);
+                        m->destroy(m->tbl.buckets[i]->v);
+                }
+                free(m->tbl.buckets[i]);
+        }
+}
+
+size_t strmap_len(const Str_Map *m) {
+        return m->tbl.len;
+}

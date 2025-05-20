@@ -7,7 +7,9 @@
 #define ENTER 10
 #define SPACE 32
 
-void display_temp_message(const char *message);
+#define display_temp_message(m) display_temp_message_wsleep(m, 1)
+
+void display_temp_message_wsleep(const char *message, int secs);
 int prompt_yes_no(const char *message);
 
 #endif // AMPIRE_NCURSES_HELPERS_H

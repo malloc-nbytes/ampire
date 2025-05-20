@@ -32,7 +32,7 @@ typedef enum {
 
 typedef struct {
         size_t uuid;
-        const Str_Array *songfps;
+        Str_Array *songfps;
         char *pname;                     // Playlist name
         Str_Array songnames;             // The stripped songname from the path
         Size_T_Array history_idxs;
@@ -50,6 +50,7 @@ typedef struct {
         int numtracks;                   // The number of songs in the playlist
         int upnext_idx;                  // The index of the next song to be played
         int playlist_modified;           // Has the current playlist been modified?
+        int playlist_saved;
 } Ctx;
 
 static int g_volume = 68;
@@ -759,7 +760,7 @@ static void handle_search(Ctx *ctx, size_t startfrom, int rev, char *prevsearch)
         adjust_scroll_offset(ctx);
 }
 
-Ctx ctx_create(const Playlist *p) {
+Ctx ctx_create(Playlist *p) {
         static size_t uuid = 0;
         Ctx ctx = (Ctx) {
                 .uuid = uuid++,
@@ -781,6 +782,7 @@ Ctx ctx_create(const Playlist *p) {
                 .numtracks = p->songfps.len,
                 .upnext_idx = 0,
                 .playlist_modified = 0,
+                .playlist_saved = 0,
         };
         for (size_t i = 0; i < p->songfps.len; ++i) {
                 dyn_array_append(ctx.songnames,
@@ -807,9 +809,16 @@ static void save_playlist(Ctx *ctx) {
                 }
         }
         assert(name);
-        io_write_to_config_file(name, ctx->songfps);
+
+        if (ctx->playlist_saved) {
+                io_replace_playlist_songs(ctx->pname, ctx->songfps);
+        } else {
+                io_write_to_config_file(name, ctx->songfps);
+        }
+
         ctx->pname = name;
         ctx->playlist_modified = 0;
+        ctx->playlist_saved = 1;
 }
 
 static void volume_up(Ctx *ctx) {
@@ -840,10 +849,63 @@ static void handle_mute(void) {
         Mix_VolumeMusic(g_volume);
 }
 
-void remove_duplicates(Ctx *ctx) {
-        if (prompt_yes_no("Remove duplicate tracks in playlist?")) {
-                ctx->playlist_modified = 1;
+static void remove_duplicates(Ctx *ctx) {
+        if (!prompt_yes_no("Remove duplicate tracks in playlist?")) return;
+
+        Str_Array found   = dyn_array_empty(Str_Array);
+        Str_Array tmp     = dyn_array_empty(Str_Array);
+        Size_T_Array idxs = dyn_array_empty(Size_T_Array);
+
+        for (size_t i = 0; i < ctx->songnames.len; ++i) {
+                int f = 0;
+                for (size_t j = 0; j < tmp.len; ++j) {
+                        if (!strcmp(ctx->songnames.data[i], tmp.data[j])) {
+                                dyn_array_append(found, ctx->songnames.data[i]);
+                                f = 1;
+                                break;
+                        }
+                }
+                if (f) {
+                        char buf[256] = {0};
+                        sprintf(buf, "Duplicate: %s", ctx->songnames.data[i]);
+                        display_temp_message_wsleep(buf, -1);
+                        dyn_array_append(found, ctx->songnames.data[i]);
+                } else {
+                        dyn_array_append(tmp, ctx->songnames.data[i]);
+                }
         }
+
+        if (!found.len) {
+                display_temp_message("No duplicates found");
+                goto cleanup;
+        }
+
+        while (found.len) {
+                for (size_t i = 0; i < ctx->songnames.len; ++i) {
+                        if (!strcmp(found.data[i], ctx->songnames.data[i])) {
+                                dyn_array_append(idxs, i);
+                                dyn_array_rm_at(found, 0);
+                                goto d;
+                        }
+                }
+        d: (void)0;
+        }
+
+        for (size_t i = 0; i < idxs.len; ++i) {
+                dyn_array_rm_at(*ctx->songfps, idxs.data[i]);
+                dyn_array_rm_at(ctx->songnames, idxs.data[i]);
+                --ctx->numtracks;
+        }
+
+        char buf[256] = {0};
+        sprintf(buf, "Removed %zu tracks", idxs.len);
+        display_temp_message(buf);
+        ctx->playlist_modified = 1;
+
+ cleanup:
+        dyn_array_free(found);
+        dyn_array_free(tmp);
+        dyn_array_free(idxs);
 }
 
 // Does not take ownership of playlists
@@ -857,6 +919,8 @@ void run(const Playlist_Array *playlists) {
                 dyn_array_append(ctxs, ctx_create(&playlists->data[i]));
                 if (playlists->data[i].from_cli) {
                         initial_ctx = i;
+                } else {
+                        ctxs.data[ctxs.len-1].playlist_saved = 1;
                 }
         }
         g_ctx = &ctxs.data[initial_ctx];
@@ -886,6 +950,7 @@ void run(const Playlist_Array *playlists) {
 
         int ch;
         while (1) {
+        start:
                 draw_windows(g_ctx, &ctxs);
                 ch = getch();
 
@@ -1014,6 +1079,16 @@ void run(const Playlist_Array *playlists) {
                 }
         }
  done:
+        for (size_t i = 0; i < ctxs.len; ++i) {
+                if (ctxs.data[i].playlist_modified) {
+                        if (prompt_yes_no("You have unsaved changes, really quit?")) {
+                                break;
+                        } else {
+                                goto start;
+                        }
+                }
+
+        }
 /*         for (size_t i = 0; i < ctx.songnames.len; ++i) { */
 /*                 free(ctx.songnames.data[i]); */
 /*         } */
