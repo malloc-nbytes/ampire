@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define STRMAP_INIT_CAP 1024
+
 typedef unsigned long (*strmap_hash_sig)(const char *k);
 typedef void (*strmap_destroy_val_sig)(void *v);
 
@@ -24,5 +26,6 @@ typedef struct {
 } Str_Map;
 
 Str_Map strmap_create(strmap_hash_sig hash, strmap_destroy_val_sig destroy);
+void strmap_insert(Str_Map *map, char *k, uint8_t *v);
 
 #endif // STRMAP_H
