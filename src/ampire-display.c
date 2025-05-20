@@ -45,6 +45,7 @@ typedef struct {
         Uint64 paused_ticks;             // Accumulated paused time
         Uint64 pause_start;              // Time when pause began
         char *prevsearch;                // Previous search used for [n] and [N]
+        int numtracks;                   // The number of songs in the playlist
 } Ctx;
 
 static int g_volume = 68;
@@ -361,6 +362,8 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
         int max_y, max_x;
         getmaxyx(right_win, max_y, max_x);
 
+        int half_width = max_x/2;
+
         if (!(g_flags & FT_DISABLE_PLAYER_LOGO)) {
                 mvwprintw(right_win, iota(1), 1, "   (");
                 mvwprintw(right_win, iota(1), 1, "   )\\       )          (   (      (");
@@ -407,8 +410,8 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 mvwprintw(right_win, iota(2), 1, "%s", display_text);
                 wattroff(right_win, A_BOLD);
 
-                mvwprintw(right_win, iota(1), 1, "Playlist: %s", ctx->pname);
-                mvwprintw(right_win, iota(1), 1, "Track: %.*s", max_x - 2, ctx->songnames.data[ctx->currently_playing_index]);
+                mvwprintw(right_win, iota(1), 1, "Playlist: %s (%d tracks)", ctx->pname, ctx->numtracks);
+                mvwprintw(right_win, iota(1), 1, "| Current: %.*s", max_x - 2, ctx->songnames.data[ctx->currently_playing_index]);
 
                 Uint64 current_ticks = SDL_GetTicks();
                 Uint64 elapsed_ms = ctx->paused ? (ctx->pause_start - ctx->start_ticks - ctx->paused_ticks)
@@ -423,14 +426,14 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                         mvwprintw(right_win, iota(1), 1, "Paused");
                         wattroff(right_win, A_REVERSE | A_BLINK);
                 } else {
-                        mvwprintw(right_win, iota(1), 1, "Elapsed: [%s]", time_str);
+                        mvwprintw(right_win, iota(1), 1, "| Elapsed: %s", time_str);
                 }
 
+                (void)iota(1);
+
                 mvwprintw(right_win, iota(0), 1, "Mode: ");
-                wattron(right_win, A_REVERSE | A_BLINK);
                 mvwprintw(right_win, iota(1), strlen("Mode: ")+1, "%s",
                           ctx->mat == MAT_NORMAL ? "Normal" : ctx->mat == MAT_SHUFFLE ? "Shuffle" : "Loop");
-                wattroff(right_win, A_REVERSE | A_BLINK);
 
                 int total_blocks = 12; // Each block represents ~10% of volume
                 int filled_blocks = (g_volume * total_blocks + MIX_MAX_VOLUME) / MIX_MAX_VOLUME; // Round up
@@ -459,20 +462,24 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                                 (void)iota(1);
                         }
                         if (start != 0) {
-                                mvwprintw(right_win, iota(1), strlen("History")+1, " [...%zu]", ctx->history_idxs.len-5);
+                                mvwprintw(right_win, iota(1), strlen("History")+1, " [%zu hidden]", ctx->history_idxs.len-5);
                         }
                         for (size_t i = start, j = 0; i < ctx->history_idxs.len; ++i, ++j) {
                                 if (i != ctx->history_idxs.len - 1) {
                                         wattron(right_win, A_DIM);
+                                } else {
+                                        wattron(right_win, A_BOLD);
                                 }
-                                mvwprintw(right_win, iota(0)+j, 3, "%s", ctx->songnames.data[ctx->history_idxs.data[i]]);
+                                mvwprintw(right_win, iota(0)+j, 3, "| %s", ctx->songnames.data[ctx->history_idxs.data[i]]);
                                 if (!ctx->paused && i == ctx->history_idxs.len - 1) {
                                         const char *equalizer_frames[] = {"|   ", "||  ", "||| ", "||||"};
                                         int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
                                         int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
-                                        mvwprintw(right_win, iota(0)+j, strlen(ctx->songnames.data[ctx->history_idxs.data[i]])+4, "%s", equalizer_frames[frame]); }
+                                        mvwprintw(right_win, iota(0)+j, strlen(ctx->songnames.data[ctx->history_idxs.data[i]])+6, "%s", equalizer_frames[frame]); }
                                 if (i != ctx->history_idxs.len - 1) {
                                         wattroff(right_win, A_DIM);
+                                } else {
+                                        wattroff(right_win, A_BOLD);
                                 }
                         }
                         iota(ctx->history_idxs.len >= 5 ? 5 : ctx->history_idxs.len);
@@ -755,6 +762,7 @@ Ctx ctx_create(const Playlist *p) {
                 .paused_ticks = 0,
                 .pause_start = 0,
                 .prevsearch = NULL,
+                .numtracks = p->songfps.len,
         };
         for (size_t i = 0; i < p->songfps.len; ++i) {
                 dyn_array_append(ctx.songnames,
@@ -769,7 +777,6 @@ static void save_playlist(Ctx *ctx) {
         while (1) {
                 name = get_userin("Enter Playlist Name:", ctx->pname);
                 if (!name) {
-                        //display_temp_message("Cancelling");
                         return;
                 } else if (!strcmp(name, "")) {
                         display_temp_message("Name Cannot be Empty");
@@ -783,7 +790,6 @@ static void save_playlist(Ctx *ctx) {
         }
         assert(name);
         io_write_to_config_file(name, ctx->songfps);
-        //display_temp_message("Saved!");
         ctx->pname = name;
 }
 
