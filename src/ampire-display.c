@@ -31,12 +31,12 @@ typedef enum {
 typedef struct {
         size_t uuid;
         const Str_Array *songfps;
-        char *pname;               // Playlist name
+        char *pname;                     // Playlist name
         Str_Array songnames;             // The stripped songname from the path
         Size_T_Array history_idxs;
         size_t sel_songfps_index;
         size_t scroll_offset;
-        int sel_fst_song;
+        int sel_fst_song;                // We have selected at least one song
         int paused;                      // Is the song currently paused
         Music_Adv_Type mat;              // What happens after the song ends, normal, shuffle, or loop
         ssize_t currently_playing_index; // Currently playing music index into `songfps`
@@ -46,7 +46,7 @@ typedef struct {
         Uint64 pause_start;              // Time when pause began
         char *prevsearch;                // Previous search used for [n] and [N]
         int numtracks;                   // The number of songs in the playlist
-        int upnext_idx;
+        int upnext_idx;                  // The index of the next song to be played
 } Ctx;
 
 static int g_volume = 68;
@@ -136,8 +136,6 @@ void handle_upnext(Ctx *ctx) {
                 r = ctx->currently_playing_index;
         }
         ctx->upnext_idx = r;
-        //ctx->currently_playing_index = ctx->sel_songfps_index = r;
-        //dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index);
 }
 
 static void play_music(Ctx *ctx, const char *song) {
@@ -228,14 +226,6 @@ static void start_song(Ctx *ctx) {
 
 static void music_finished(void) {
         assert(g_ctx);
-        /* size_t r = 0; */
-        /* if (g_ctx->mat == MAT_NORMAL) { */
-        /*         r = (g_ctx->currently_playing_index + 1) % g_ctx->songfps->len; */
-        /* } else if (g_ctx->mat == MAT_SHUFFLE) { */
-        /*         r = getrand(g_ctx); */
-        /* } else if (g_ctx->mat == MAT_LOOP) { */
-        /*         r = g_ctx->currently_playing_index; */
-        /* } else { assert(0); } */
         g_ctx->currently_playing_index = g_ctx->sel_songfps_index = g_ctx->upnext_idx;
         dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index);
         Mix_HaltMusic();
@@ -248,7 +238,6 @@ static void pause_audio(Ctx *ctx) {
         ctx->paused = !ctx->paused;
         Mix_PauseAudio(ctx->paused);
         if (ctx->paused) {
-                // Start of pause
                 ctx->pause_start = SDL_GetTicks();
         } else {
                 // Add pause duration
@@ -280,7 +269,7 @@ static void seek_music(Ctx *ctx, double seconds) {
                 return;
         }
 
-        // Reflect the new position
+        // Show the new position
         ctx->start_ticks = SDL_GetTicks() - (Uint64)(new_position * 1000) - ctx->paused_ticks;
 }
 
@@ -289,14 +278,12 @@ static void handle_key_up(Ctx *ctx) {
 
         if (ctx->songfps->len == 0) return;
 
-        // Move selection up, wrapping to the end if at the top
         if (ctx->sel_songfps_index > 0) {
                 ctx->sel_songfps_index--;
         } else {
                 ctx->sel_songfps_index = ctx->songfps->len - 1;
         }
 
-        // Adjust scroll offset
         adjust_scroll_offset(ctx);
 }
 
@@ -305,14 +292,12 @@ static void handle_key_down(Ctx *ctx) {
 
         if (ctx->songfps->len == 0) return;
 
-        // Move selection down, wrapping to the start if at the end
         if (ctx->sel_songfps_index < ctx->songfps->len - 1) {
                 ctx->sel_songfps_index++;
         } else {
                 ctx->sel_songfps_index = 0;
         }
 
-        // Adjust scroll offset
         adjust_scroll_offset(ctx);
 }
 
@@ -355,7 +340,7 @@ static void init_ncurses(void) {
                 exit(1);
         }
 
-        // Enable scrolling for the left window if needed
+        // Enable scrolling for the left window
         scrollok(left_win, TRUE);
 }
 
@@ -379,7 +364,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
         int max_y, max_x;
         getmaxyx(right_win, max_y, max_x);
 
-        int half_width = max_x/2;
+        //int half_width = max_x/2;
 
         if (!(g_flags & FT_DISABLE_PLAYER_LOGO)) {
                 mvwprintw(right_win, iota(1), 1, "   (");
@@ -407,7 +392,6 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
         // Display currently playing info in right window
         if (ctx && ctx->currently_playing_index != -1) {
                 // "Now Playing" animation
-                //const char *base_text = "-=-=- Now Playing -=-=";
                 const char *base_text = !ctx->paused ? "-=-=- Now Playing -=-=" : "-=-=- PAUSED -=-=";
                 int base_len = strlen(base_text); // 22 characters
                 int display_width = max_x - 2; // Account for borders
@@ -427,7 +411,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 mvwprintw(right_win, iota(2), 1, "%s", display_text);
                 wattroff(right_win, A_BOLD);
 
-                mvwprintw(right_win, iota(1), 1, "Playlist: %s (%d tracks)", ctx->pname, ctx->numtracks);
+                mvwprintw(right_win, iota(1), 1, "> Playlist: %s (%d tracks)", ctx->pname, ctx->numtracks);
                 mvwprintw(right_win, iota(1), 1, "> Current: %.*s", max_x - 2, ctx->songnames.data[ctx->currently_playing_index]);
 
                 Uint64 current_ticks = SDL_GetTicks();
@@ -500,11 +484,10 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                                 }
                         }
                         iota(ctx->history_idxs.len >= 5 ? 5 : ctx->history_idxs.len);
-                        //mvwprintw(right_win, iota(0), 1, "Up Next: %s", ctx->songnames.data[ctx->upnext_idx]);
-                        wattron(right_win, A_REVERSE);
+                        //wattron(right_win, A_REVERSE);
                         mvwprintw(right_win, iota(0), 1, "Up Next");
-                        wattroff(right_win, A_REVERSE);
-                        mvwprintw(right_win, iota(1), strlen("Up Next")+1, " [%s]", ctx->songnames.data[ctx->upnext_idx]);
+                        //wattroff(right_win, A_REVERSE);
+                        mvwprintw(right_win, iota(1), strlen("Up Next")+1, ": [%s]", ctx->songnames.data[ctx->upnext_idx]);
                 }
         } else {
                 if (ctx) {
@@ -692,7 +675,7 @@ char *get_userin(const char *message, const char *autofill) {
         // Autofill input if provided
         if (autofill) {
                 strncpy(input, autofill, sizeof(input) - 1);
-                input[sizeof(input) - 1] = '\0'; // Ensure null-termination
+                input[sizeof(input) - 1] = '\0';
                 input_len = strlen(input);
         }
 
