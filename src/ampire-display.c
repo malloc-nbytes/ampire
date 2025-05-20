@@ -795,6 +795,8 @@ static void save_playlist(Ctx *ctx) {
         if (!ctx) return;
         char *name = NULL;
         while (1) {
+                if (ctx->playlist_saved) break;
+
                 name = get_userin("Enter Playlist Name:", ctx->pname);
                 if (!name) {
                         return;
@@ -808,15 +810,14 @@ static void save_playlist(Ctx *ctx) {
                         break;
                 }
         }
-        assert(name);
 
         if (ctx->playlist_saved) {
                 io_replace_playlist_songs(ctx->pname, ctx->songfps);
         } else {
                 io_write_to_config_file(name, ctx->songfps);
+                ctx->pname = name;
         }
 
-        ctx->pname = name;
         ctx->playlist_modified = 0;
         ctx->playlist_saved = 1;
 }
