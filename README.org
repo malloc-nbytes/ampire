@@ -74,8 +74,6 @@ You can see this table by calling =ampire --controls=.
 
 ** Known Bugs
 
-- Frantically resizing the window will cause a segmentation fault.
-- Music titles that are very long will mess up the UI.
 - It is unable to display non-utf8 characters.
 - Occasional clicking could happen when starting a song, but it goes away after a few seconds.
 - Sometimes when you delete a playlist after adding a bunch of them, it will remove the wrong one
