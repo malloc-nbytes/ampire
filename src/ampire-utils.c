@@ -1,3 +1,5 @@
+#include <assert.h>
+#include <string.h>
 #include <ctype.h>
 
 #include "ampire-utils.h"
@@ -18,4 +20,16 @@ unsigned long djb2(const char *str) {
         }
 
         return hash;
+}
+
+char *shstr(char *s, int len) {
+        assert(len < 256);
+        static char buf[256] = {0};
+        if (strlen(s) > len) {
+                (void)strncpy(buf, s, len);
+                buf[len++] = '.'; buf[len++] = '.'; buf[len++] = '.';
+                buf[len++] = '\0';
+                return buf;
+        }
+        return s;
 }

@@ -20,4 +20,6 @@ int str_isdigit(const char *s);
 
 unsigned long djb2(const char *str);
 
+char *shstr(char *s, int len);
+
 #endif // UTILS_H

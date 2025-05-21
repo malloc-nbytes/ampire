@@ -55,6 +55,8 @@ typedef struct {
 
 static int g_volume = 68;
 static int g_last_volume = 0;
+static int g_scrn_width = 0;
+static int g_scrn_height = 0;
 
 DYN_ARRAY_TYPE(Ctx, Ctx_Array);
 
@@ -327,6 +329,9 @@ static void init_ncurses(void) {
         getmaxyx(stdscr, max_y, max_x);
         int half_width = max_x / 2;
 
+        g_scrn_width = max_x;
+        g_scrn_height = max_y;
+
         // Create left window (song list)
         left_win = newwin(max_y, half_width, 0, 0);
         if (!left_win) {
@@ -370,7 +375,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
 
         //int half_width = max_x/2;
 
-        if (!(g_config.flags & FT_DISABLE_PLAYER_LOGO)) {
+        if (!(g_config.flags & FT_DISABLE_PLAYER_LOGO) && max_x > 50 && max_y > 35) {
                 mvwprintw(right_win, iota(1), 1, "   (");
                 mvwprintw(right_win, iota(1), 1, "   )\\       )          (   (      (");
                 mvwprintw(right_win, iota(1), 1, "((((_)(    (     `  )  )\\  )(    ))\\");
@@ -421,7 +426,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 wattroff(right_win, A_BOLD);
 
                 mvwprintw(right_win, iota(1), 1, "> Playlist: %s (%d tracks)", ctx->pname, ctx->numtracks);
-                mvwprintw(right_win, iota(1), 1, "> Current: %.*s", max_x - 2, ctx->songnames.data[ctx->currently_playing_index]);
+                mvwprintw(right_win, iota(1), 1, "> Current: %.*s", max_x - 2, shstr(ctx->songnames.data[ctx->currently_playing_index], max_x/2));
 
                 Uint64 current_ticks = SDL_GetTicks();
                 Uint64 elapsed_ms = ctx->paused ? (ctx->pause_start - ctx->start_ticks - ctx->paused_ticks)
@@ -481,12 +486,14 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                                 } else {
                                         wattron(right_win, A_BOLD);
                                 }
-                                mvwprintw(right_win, iota(0)+j, 3, "| %s", ctx->songnames.data[ctx->history_idxs.data[i]]);
+                                mvwprintw(right_win, iota(0)+j, 3, "| %s", shstr(ctx->songnames.data[ctx->history_idxs.data[i]], max_x/2));
                                 if (!ctx->paused && i == ctx->history_idxs.len - 1) {
                                         const char *equalizer_frames[] = {"|   ", "||  ", "||| ", "||||"};
                                         int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
                                         int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
-                                        mvwprintw(right_win, iota(0)+j, strlen(ctx->songnames.data[ctx->history_idxs.data[i]])+6, "%s", equalizer_frames[frame]); }
+                                        int N = strlen(ctx->songnames.data[ctx->history_idxs.data[i]]);
+                                        int loc = N > max_x/2 ? max_x/2 + 3 : N;
+                                        mvwprintw(right_win, iota(0)+j, loc+6, "%s", equalizer_frames[frame]); }
                                 if (i != ctx->history_idxs.len - 1) {
                                         wattroff(right_win, A_DIM);
                                 } else {
@@ -495,7 +502,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                         }
                         iota(ctx->history_idxs.len >= histsz ? histsz : ctx->history_idxs.len);
                         mvwprintw(right_win, iota(0), 1, "Up Next");
-                        mvwprintw(right_win, iota(1), strlen("Up Next")+1, ": [%s]", ctx->songnames.data[ctx->upnext_idx]);
+                        mvwprintw(right_win, iota(1), strlen("Up Next")+1, ": [%s]", shstr(ctx->songnames.data[ctx->upnext_idx], max_x/2));
                 }
         } else {
                 if (ctx) {
@@ -531,7 +538,7 @@ static void draw_song_list(Ctx *ctx) {
                                 wattron(left_win, A_REVERSE);
                         }
                         // Print at x=1 to avoid left border, truncate to fit inside right border
-                        mvwprintw(left_win, display_row, 1, "%.*s", max_x - 2, ctx->songnames.data[i]);
+                        mvwprintw(left_win, display_row, 1, "%.*s", max_x - 2, shstr(ctx->songnames.data[i], max_x/2 + 10));
                         if (i == ctx->sel_songfps_index) {
                                 wattroff(left_win, A_REVERSE);
                         }
@@ -539,7 +546,9 @@ static void draw_song_list(Ctx *ctx) {
                                 const char *equalizer_frames[] = {"|", "/", "-", "\\"};
                                 int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
                                 int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
-                                mvwprintw(left_win, display_row, strlen(ctx->songnames.data[i]) + 2, "%s", equalizer_frames[frame]);
+                                int N = strlen(ctx->songnames.data[i]);
+                                int loc = N > max_x/2 + 10 ? max_x/2 + 13 : N;
+                                mvwprintw(left_win, display_row, loc + 2, "%s", equalizer_frames[frame]);
                         }
                 }
         }
@@ -547,8 +556,15 @@ static void draw_song_list(Ctx *ctx) {
         wrefresh(left_win);
 }
 
-static void resize_windows(int sig) {
-        if (!g_ctx) return;
+static volatile sig_atomic_t g_resize_flag = 0;
+
+static void resize_signal_handler(int sig) {
+        g_resize_flag = 1;
+}
+
+static void handle_resize(void) {
+        if (!g_resize_flag || !g_ctx) return;
+        g_resize_flag = 0;
 
         endwin();
         refresh();
@@ -556,20 +572,26 @@ static void resize_windows(int sig) {
         getmaxyx(stdscr, max_y, max_x);
         int half_width = max_x / 2;
 
+        g_scrn_width = max_x;
+        g_scrn_height = max_y;
+
         if (left_win) delwin(left_win);
         if (right_win) delwin(right_win);
+        left_win = right_win = NULL;
 
         left_win = newwin(max_y, half_width, 0, 0);
         right_win = newwin(max_y, max_x - half_width, 0, half_width);
 
         if (!left_win || !right_win) {
+                if (left_win) delwin(left_win);
+                if (right_win) delwin(right_win);
                 endwin();
                 fprintf(stderr, "Failed to recreate windows after resize\n");
+                cleanup();
                 exit(1);
         }
         scrollok(left_win, TRUE);
 
-        // Adjust scroll_offset to keep sel_songfps_index visible
         size_t visible_rows = max_y - 2;
         if (g_ctx->sel_songfps_index < g_ctx->scroll_offset) {
                 g_ctx->scroll_offset = g_ctx->sel_songfps_index;
@@ -952,11 +974,13 @@ void run(const Playlist_Array *playlists) {
         }
 
         init_ncurses();
-        signal(SIGWINCH, resize_windows);
+        //signal(SIGWINCH, resize_windows);
+        signal(SIGWINCH, resize_signal_handler);
 
         int ch;
         while (1) {
         start:
+                handle_resize();
                 draw_windows(g_ctx, &ctxs);
                 ch = getch();
 
@@ -973,7 +997,7 @@ void run(const Playlist_Array *playlists) {
                 case 'Q':
                 case CTRL('q'): goto done;
                 case CTRL('l'): {
-                        resize_windows(1);
+                        resize_signal_handler(1);
                 } break;
                 case '!': {
                         remove_duplicates(g_ctx);
