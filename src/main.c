@@ -232,7 +232,7 @@ static void controls(void) {
         printf("| [ G ]               | Jump to last song                                         |\n");
         printf("| [ ! ]               | Remove duplicate tracks from playlist                     |\n");
         printf("| [ ENTER ]           | Play song from song list                                  |\n");
-        printf("| [ CTRL+l ]          | Redraw screen (if you resize the screen, run this)        |\n");
+        printf("| [ CTRL+l ]          | Redraw screen                                             |\n");
         printf("| [ CTRL+q ]          | Quit                                                      |\n");
         printf("| [ CTRL+s ]          | Save song list                                            |\n");
         printf("| [ 1..=9 ]           | Select song list                                          |\n");
