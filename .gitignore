@@ -1,2 +1,3 @@
 build
 src/ampire-debug-build
+src/include/config.h
