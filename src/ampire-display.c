@@ -517,7 +517,11 @@ static void draw_song_list(Ctx *ctx) {
         size_t visible_rows = max_y - 2; // Account for borders
 
         if (!ctx) {
-                mvwprintw(left_win, 1, 1, "No Music! Press [f] to select music! (unimplemented)");
+                mvwprintw(left_win, 1, 1, "No Music! Opening Ampire with no music is currently unimplemented.");
+                mvwprintw(left_win, 2, 1, "Provide paths to the files from the command line i.e.,.");
+                mvwprintw(left_win, 3, 4, "ampire /home/<user>/Music/electronic -r /home/<user>/Music/");
+                mvwprintw(left_win, 4, 1, "Then save those as playlists with [CTRL] + s.");
+                mvwprintw(left_win, 6, 1, "See ampire --help for more information.");
         }
 
         if (ctx) {

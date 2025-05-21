@@ -44,7 +44,7 @@ void usage(void) {
         printf("Ampire v" VERSION ", (compiler) " COMPILER_INFO "\n\n");
         printf("Usage: ampire [dir...] [options...]\n");
         printf("Options:\n");
-        printf("    -%c, --%s             print this help message\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
+        printf("    -%c, --%s[=<flag>|*]  print this help message or get help on an individual flag\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
         printf("    -%c, --%s          view version\n", FLAG_1HY_VERSION, FLAG_2HY_VERSION);
         printf("    -%c, --%s        enable recursive search for songs\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
         printf("    -%c, --%s            clear saved songs in config file\n", FLAG_1HY_CLR_SAVED_SONGS, FLAG_2HY_CLR_SAVED_SONGS);
@@ -61,6 +61,131 @@ static void version(void) {
         exit(0);
 }
 
+static void playlist_info(void) {
+        printf("--help(%s):\n", FLAG_2HY_PLAYLIST);
+        printf("    Set the starting playlist from the command line. This is usefull for\n");
+        printf("    if you are scripting button events in your WM/DE to open ampire *and* you want\n");
+        printf("    a specific playlist to be selected.\n");
+        printf("    As of now, it accepts and integer between [1..=9], but in the future, it will\n");
+        printf("    also accept a name.\n");
+        printf("    Example:\n");
+        printf("        ampire --playlist=3\n");
+        printf("    This will set the playlist to the 3rd one saved.\n");
+}
+
+static void volume_info(void) {
+        printf("--help(%s):\n", FLAG_2HY_VOLUME);
+        printf("    Set the volume from the command line. This is useful for if you are\n");
+        printf("    scripting button events in your WM/DE to open ampire *and* you want\n");
+        printf("    to have it always launch with a specific volume.\n");
+        printf("    The volume ranges from [0..=128], so it must be in that range, it is\n");
+        printf("    NOT a percentage.\n");
+        printf("    Example:\n");
+        printf("        ampire --volume=65\n");
+        printf("    This will set the volume to 50%%.\n");
+}
+
+static void disable_player_logo_info(void) {
+        printf("--help(%s):\n", FLAG_2HY_DISABLE_PLAYER_LOGO);
+        printf("    Do not show the ampire logo inside of the player. This can be used\n");
+        printf("    to save screen space if you need it.\n");
+}
+
+static void show_saves_info(void) {
+        printf("--help(%s):\n", FLAG_2HY_SHOW_SAVES);
+        printf("    Show all saved playlists as well as the paths that the songs are located at\n");
+}
+
+static void clear_info(void) {
+        printf("--help(%c, %s):\n", FLAG_1HY_CLR_SAVED_SONGS, FLAG_2HY_CLR_SAVED_SONGS);
+        printf("    All saved playlists gets saved in `/home/$USER/.ampire`.\n");
+        printf("    If you want to reset this file, you can call this flag to clear it.\n");
+        printf("    Note: ampire will exit upon invocation of this flag.\n");
+}
+
+static void notif_info(void) {
+        printf("--help(%s):\n", FLAG_2HY_RECURSIVE);
+        printf("    Enable usage of whatever notification system(s) you have installed\n");
+        printf("    on the system to get desktop notifications on song changes, search failings, etc.\n");
+        printf("    Note: If no notification programs are installed, ampire may produce bugs.");
+}
+
+static void recursive_info(void) {
+        printf("--help(%c, %s):\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
+        printf("    Enable recursive search for music in the directory(s) provided\n");
+        printf("    Example:\n");
+        printf("    Listing of: /home/$USER/Music/:\n");
+        printf("    ├── breakcore\n");
+        printf("    │   ├── song1.mp3\n");
+        printf("    │   ├── song2.mp3\n");
+        printf("    │   ├── song3.mp3\n");
+        printf("    ├── electronic\n");
+        printf("    │   ├── song4.mp3\n");
+        printf("    │   ├── song5.mp3\n");
+        printf("    ├── song6.mp3\n");
+        printf("    Calling `ampire -r /home/$USER/Music` will get the music tracks:\n");
+        printf("        song1.mp3, song2.mp3, song3.mp3, song4.mp3, song5.mp3, song6.mp3\n");
+}
+
+static void version_info(void) {
+        printf("--help(%c, %s):\n", FLAG_1HY_VERSION, FLAG_2HY_VERSION);
+        printf("    See the version information\n");
+}
+
+static void help_info(void) {
+        printf("--help(%c, %s):\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
+        printf("    Show the help menu or help on individual flags with --help=<flag>\n");
+        printf("    Examples:\n");
+        printf("        ampire --help\n");
+        printf("        ampire -h\n");
+        printf("        ampire --help=version\n");
+        printf("        ampire -h=volume\n");
+}
+
+static void show_help_for_flag(const char *flag) {
+        void (*help[])(void) = {
+                help_info,
+                version_info,
+                recursive_info,
+                clear_info,
+                notif_info,
+                show_saves_info,
+                disable_player_logo_info,
+                volume_info,
+                playlist_info,
+        };
+
+#define OHYEQ(n, flag, actual) ((n) == 1 && (flag)[0] == (actual))
+        size_t n = strlen(flag);
+        if (OHYEQ(n, flag, FLAG_1HY_HELP) || !strcmp(flag, FLAG_2HY_HELP)) {
+                help[0]();
+        } else if (OHYEQ(n, flag, FLAG_1HY_VERSION) || !strcmp(flag, FLAG_2HY_VERSION)) {
+                help[1]();
+        } else if (OHYEQ(n, flag, FLAG_1HY_RECURSIVE) || !strcmp(flag, FLAG_2HY_RECURSIVE)) {
+                help[2]();
+        } else if (OHYEQ(n, flag, FLAG_1HY_CLR_SAVED_SONGS) || !strcmp(flag, FLAG_2HY_CLR_SAVED_SONGS)) {
+                help[3]();
+        } else if (!strcmp(flag, FLAG_2HY_NOTIF)) {
+                help[4]();
+        } else if (!strcmp(flag, FLAG_2HY_SHOW_SAVES)) {
+                help[5]();
+        } else if (!strcmp(flag, FLAG_2HY_DISABLE_PLAYER_LOGO)) {
+                help[6]();
+        } else if (!strcmp(flag, FLAG_2HY_VOLUME)) {
+                help[7]();
+        } else if (!strcmp(flag, FLAG_2HY_PLAYLIST)) {
+                help[8]();
+        } else if (OHYEQ(n, flag, '*')) {
+                for (size_t i = 0; i < sizeof(help)/8; ++i) {
+                        help[i]();
+                }
+        } else {
+                err_wargs("help(%s) info does not exist", flag);
+        }
+        exit(0);
+#undef OHYEQ
+}
+
 int main(int argc, char **argv) {
         --argc, ++argv;
         clap_init(argc, argv);
@@ -69,7 +194,11 @@ int main(int argc, char **argv) {
 
         Clap_Arg arg = {0};
         while (clap_next(&arg)) {
-                if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_HELP) {
+                if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_HELP && arg.eq) {
+                        show_help_for_flag(arg.eq);
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_HELP) && arg.eq) {
+                        show_help_for_flag(arg.eq);
+                } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_HELP) {
                         usage();
                 } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_VERSION) {
                         version();
