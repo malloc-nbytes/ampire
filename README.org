@@ -1,5 +1,7 @@
 * ampire
 
+[[./assets/logo.png]]
+
 *Note:* This project is still in the early development stages, so
 there are many bugs and it may not work properly.
 
@@ -78,3 +80,13 @@ You can see this table by calling =ampire --controls=.
 - Occasional clicking could happen when starting a song, but it goes away after a few seconds.
 - Sometimes when you delete a playlist after adding a bunch of them, it will remove the wrong one
   (unsure of the cause as of now).
+
+** Screenshots
+
+*** Large Terminal
+
+[[./assets/sc1.png]]
+
+*** Small Terminal
+
+[[./assets/sc2.png]]
