@@ -26,6 +26,7 @@
 #define FLAG_2HY_VOLUME "volume"
 #define FLAG_2HY_PLAYLIST "playlist"
 #define FLAG_2HY_VERSION "version"
+#define FLAG_2HY_CONTROLS "controls"
 
 struct {
         uint32_t flags;
@@ -59,6 +60,11 @@ void usage(void) {
 static void version(void) {
         printf("Ampire v" VERSION "\n");
         exit(0);
+}
+
+static void controls_info(void) {
+        printf("--help(%s):\n", FLAG_2HY_CONTROLS);
+        printf("    View the ampire player controls\n");
 }
 
 static void playlist_info(void) {
@@ -114,17 +120,17 @@ static void recursive_info(void) {
         printf("--help(%c, %s):\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
         printf("    Enable recursive search for music in the directory(s) provided\n");
         printf("    Example:\n");
-        printf("    Listing of: /home/$USER/Music/:\n");
-        printf("    ├── breakcore\n");
-        printf("    │   ├── song1.mp3\n");
-        printf("    │   ├── song2.mp3\n");
-        printf("    │   ├── song3.mp3\n");
-        printf("    ├── electronic\n");
-        printf("    │   ├── song4.mp3\n");
-        printf("    │   ├── song5.mp3\n");
-        printf("    ├── song6.mp3\n");
-        printf("    Calling `ampire -r /home/$USER/Music` will get the music tracks:\n");
-        printf("        song1.mp3, song2.mp3, song3.mp3, song4.mp3, song5.mp3, song6.mp3\n");
+        printf("        Listing of: /home/$USER/Music/:\n");
+        printf("        ├── breakcore\n");
+        printf("        │   ├── song1.mp3\n");
+        printf("        │   ├── song2.mp3\n");
+        printf("        │   ├── song3.mp3\n");
+        printf("        ├── electronic\n");
+        printf("        │   ├── song4.mp3\n");
+        printf("        │   ├── song5.mp3\n");
+        printf("        ├── song6.mp3\n");
+        printf("        Calling `ampire -r /home/$USER/Music` will get the music tracks:\n");
+        printf("            [song1.mp3, song2.mp3, song3.mp3, song4.mp3, song5.mp3, song6.mp3]\n");
 }
 
 static void version_info(void) {
@@ -153,6 +159,7 @@ static void show_help_for_flag(const char *flag) {
                 disable_player_logo_info,
                 volume_info,
                 playlist_info,
+                controls_info,
         };
 
 #define OHYEQ(n, flag, actual) ((n) == 1 && (flag)[0] == (actual))
@@ -175,6 +182,8 @@ static void show_help_for_flag(const char *flag) {
                 help[7]();
         } else if (!strcmp(flag, FLAG_2HY_PLAYLIST)) {
                 help[8]();
+        } else if (!strcmp(flag, FLAG_2HY_CONTROLS)) {
+                help[9]();
         } else if (OHYEQ(n, flag, '*')) {
                 for (size_t i = 0; i < sizeof(help)/8; ++i) {
                         help[i]();
@@ -184,6 +193,36 @@ static void show_help_for_flag(const char *flag) {
         }
         exit(0);
 #undef OHYEQ
+}
+
+static void controls(void) {
+        printf("| Keybinds            | Action                                                    |\n");
+        printf("|---------------------+-----------------------------------------------------------|\n");
+        printf("| [ DOWN ], [ j ]     | Move down in the song selection                           |\n");
+        printf("| [ UP ], [ k ]       | Move up in the song selection                             |\n");
+        printf("| [ RIGHT ], [ l ]    | Seek forward in the music 10 seconds                      |\n");
+        printf("| [ LEFT ], [ h ]     | Seek backward in the music 10 seconds                     |\n");
+        printf("| [ . ], [ > ], [ L ] | Next song                                                 |\n");
+        printf("| [ , ], [ < ], [ H ] | Previous song from history                                |\n");
+        printf("| [ - ], [ _ ]        | Volume down                                               |\n");
+        printf("| [ + ], [ = ]        | Volume up                                                 |\n");
+        printf("| [ a ]               | Toggle song advancement between normal, shuffle, and loop |\n");
+        printf("| [ m ]               | Mute/unmute                                               |\n");
+        printf("| [ SPACE ]           | Pause / play                                              |\n");
+        printf("| [ f ]               | Open a file dialogue (unimplemented)                      |\n");
+        printf("| [ / ]               | Search the song list with regex                           |\n");
+        printf("| [ n ]               | Search for next match                                     |\n");
+        printf("| [ N ]               | Search for previous match                                 |\n");
+        printf("| [ d ]               | Delete song list                                          |\n");
+        printf("| [ g ]               | Jump to first song                                        |\n");
+        printf("| [ G ]               | Jump to last song                                         |\n");
+        printf("| [ ! ]               | Remove duplicate tracks from playlist                     |\n");
+        printf("| [ ENTER ]           | Play song from song list                                  |\n");
+        printf("| [ CTRL+l ]          | Redraw screen (if you resize the screen, run this)        |\n");
+        printf("| [ CTRL+q ]          | Quit                                                      |\n");
+        printf("| [ CTRL+s ]          | Save song list                                            |\n");
+        printf("| [ 1..=9 ]           | Select song list                                          |\n");
+        exit(0);
 }
 
 int main(int argc, char **argv) {
@@ -230,6 +269,8 @@ int main(int argc, char **argv) {
                         if (!arg.eq)              err("--playlist expects a value after equals (=)\n");
                         if (!str_isdigit(arg.eq)) err_wargs("--playlist expects a number, not `%s`\n", arg.eq);
                         g_config.playlist = atoi(arg.eq);
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_CONTROLS)) {
+                        controls();
                 } else if (arg.hyphc > 0) {
                         err_wargs("invalid flag: %s", arg.start);
                 } else {
