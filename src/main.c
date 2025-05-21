@@ -38,7 +38,7 @@ struct {
         .flags = 0x0,
         .volume = -1,
         .playlist = -1,
-        .history_sz = 5,
+        .history_sz = 1000,
 };
 
 // TODO: fix memory leaks
@@ -70,7 +70,9 @@ static void history_sz_info(void) {
         printf("--help(%s):\n", FLAG_2HY_HISTORY_SZ);
         printf("    Set the number of history items gets displayed.\n");
         printf("    This is useful if you have more/less screenspace\n");
-        printf("    and want to change the default number (5).\n");
+        printf("    and want to change the default number (1000).\n");
+        printf("    Note: The reason why it is set to 1000 is because\n");
+        printf("          it can grow/shrink to your screen size dynamically.\n");
 }
 
 static void controls_info(void) {
@@ -80,7 +82,7 @@ static void controls_info(void) {
 
 static void playlist_info(void) {
         printf("--help(%s):\n", FLAG_2HY_PLAYLIST);
-        printf("    Set the starting playlist from the command line. This is usefull for\n");
+        printf("    Set the starting playlist from the command line. This is useful for\n");
         printf("    if you are scripting button events in your WM/DE to open ampire *and* you want\n");
         printf("    a specific playlist to be selected.\n");
         printf("    As of now, it accepts and integer between [1..=9], but in the future, it will\n");

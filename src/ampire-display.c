@@ -471,7 +471,15 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 }
 
                 if (ctx->history_idxs.len > 0) {
-                        const int histsz = g_config.history_sz;
+                        int histsz = g_config.history_sz;
+                        // Adjust history size based on available vertical space
+                        int available_lines = max_y - iota(0) - 5; // Reserve lines for "Up Next"
+                        if (available_lines < histsz) {
+                                histsz = available_lines > 0 ? available_lines : 0; // Non-negative
+                        }
+                        // Cap at g_config.history_sz
+                        histsz = histsz > g_config.history_sz ? g_config.history_sz : histsz;
+
                         size_t start = ctx->history_idxs.len > histsz ? ctx->history_idxs.len - histsz : 0;
                         mvwprintw(right_win, iota(0), 1, "History");
                         if (start == 0) {
