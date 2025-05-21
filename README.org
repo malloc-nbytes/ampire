@@ -1,15 +1,14 @@
 * ampire
 
 *Note:* This project is still in the early development stages, so
-it may not work properly.
+there are many bugs and it may not work properly.
 
-=ampire= is a simple music player that is ran in the terminal. It supports
-=.mp3=, =.ogg=, and =.wav=.
+=ampire= is a simple music player that is ran in the terminal.
 
 ** Dependencies
 
-- SDL3 <vendored>
-- SDL3_mixer <vendored>
+- SDL3       <vendored> (no download required)
+- SDL3_mixer <vendored> (no download required)
 - ncurses
 
 ** Compiling and Installing
@@ -71,3 +70,13 @@ then try running it again.
 | [ CTRL+s ]          | Save song list                                            |
 | [ 1..=9 ]           | Select song list                                          |
 
+You can see this table by calling =ampire --controls=.
+
+** Known Bugs
+
+- Frantically resizing the window will cause a segmentation fault.
+- Music titles that are very long will mess up the UI.
+- It is unable to display non-utf8 characters.
+- Occasional clicking could happen when starting a song, but it goes away after a few seconds.
+- Sometimes when you delete a playlist after adding a bunch of them, it will remove the wrong one
+  (unsure of the cause as of now).
