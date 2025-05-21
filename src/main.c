@@ -27,15 +27,18 @@
 #define FLAG_2HY_PLAYLIST "playlist"
 #define FLAG_2HY_VERSION "version"
 #define FLAG_2HY_CONTROLS "controls"
+#define FLAG_2HY_HISTORY_SZ "history-sz"
 
 struct {
         uint32_t flags;
         int volume;
         int playlist;
+        int history_sz;
 } g_config = {
         .flags = 0x0,
         .volume = -1,
         .playlist = -1,
+        .history_sz = 5,
 };
 
 // TODO: fix memory leaks
@@ -54,12 +57,20 @@ void usage(void) {
         printf("        --%s   do not show the logo in the player\n", FLAG_2HY_DISABLE_PLAYER_LOGO);
         printf("        --%s=v         set the volume as `v` where 0 <= v <= 128 (note: not a percentage)\n", FLAG_2HY_VOLUME);
         printf("        --%s=p       set the playlist to `p`\n", FLAG_2HY_PLAYLIST);
+        printf("        --%s=i     set the history size to `i`\n", FLAG_2HY_HISTORY_SZ);
         exit(0);
 }
 
 static void version(void) {
         printf("Ampire v" VERSION "\n");
         exit(0);
+}
+
+static void history_sz_info(void) {
+        printf("--help(%s):\n", FLAG_2HY_HISTORY_SZ);
+        printf("    Set the number of history items gets displayed.\n");
+        printf("    This is useful if you have more/less screenspace\n");
+        printf("    and want to change the default number (5).\n");
 }
 
 static void controls_info(void) {
@@ -160,6 +171,7 @@ static void show_help_for_flag(const char *flag) {
                 volume_info,
                 playlist_info,
                 controls_info,
+                history_sz_info,
         };
 
 #define OHYEQ(n, flag, actual) ((n) == 1 && (flag)[0] == (actual))
@@ -184,6 +196,8 @@ static void show_help_for_flag(const char *flag) {
                 help[8]();
         } else if (!strcmp(flag, FLAG_2HY_CONTROLS)) {
                 help[9]();
+        } else if (!strcmp(flag, FLAG_2HY_HISTORY_SZ)) {
+                help[10]();
         } else if (OHYEQ(n, flag, '*')) {
                 for (size_t i = 0; i < sizeof(help)/8; ++i) {
                         help[i]();
@@ -269,6 +283,10 @@ int main(int argc, char **argv) {
                         if (!arg.eq)              err("--playlist expects a value after equals (=)\n");
                         if (!str_isdigit(arg.eq)) err_wargs("--playlist expects a number, not `%s`\n", arg.eq);
                         g_config.playlist = atoi(arg.eq);
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_HISTORY_SZ)) {
+                        if (!arg.eq)              err("--history-sz expects a value after equals (=)\n");
+                        if (!str_isdigit(arg.eq)) err_wargs("--history-sz expects a number, not `%s`\n", arg.eq);
+                        g_config.history_sz = atoi(arg.eq);
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_CONTROLS)) {
                         controls();
                 } else if (arg.hyphc > 0) {

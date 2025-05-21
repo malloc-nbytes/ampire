@@ -466,13 +466,14 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 }
 
                 if (ctx->history_idxs.len > 0) {
-                        size_t start = ctx->history_idxs.len > 5 ? ctx->history_idxs.len - 5 : 0;
+                        const int histsz = g_config.history_sz;
+                        size_t start = ctx->history_idxs.len > histsz ? ctx->history_idxs.len - histsz : 0;
                         mvwprintw(right_win, iota(0), 1, "History");
                         if (start == 0) {
                                 (void)iota(1);
                         }
                         if (start != 0) {
-                                mvwprintw(right_win, iota(1), strlen("History")+1, " [%zu hidden]", ctx->history_idxs.len-5);
+                                mvwprintw(right_win, iota(1), strlen("History")+1, " [%zu hidden]", ctx->history_idxs.len-histsz);
                         }
                         for (size_t i = start, j = 0; i < ctx->history_idxs.len; ++i, ++j) {
                                 if (i != ctx->history_idxs.len - 1) {
@@ -492,10 +493,8 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                                         wattroff(right_win, A_BOLD);
                                 }
                         }
-                        iota(ctx->history_idxs.len >= 5 ? 5 : ctx->history_idxs.len);
-                        //wattron(right_win, A_REVERSE);
+                        iota(ctx->history_idxs.len >= histsz ? histsz : ctx->history_idxs.len);
                         mvwprintw(right_win, iota(0), 1, "Up Next");
-                        //wattroff(right_win, A_REVERSE);
                         mvwprintw(right_win, iota(1), strlen("Up Next")+1, ": [%s]", ctx->songnames.data[ctx->upnext_idx]);
                 }
         } else {
