@@ -121,7 +121,7 @@ static void clear_info(void) {
 }
 
 static void notif_info(void) {
-        printf("--help(%s):\n", FLAG_2HY_RECURSIVE);
+        printf("--help(%s):\n", FLAG_2HY_NOTIF);
         printf("    Enable usage of whatever notification system(s) you have installed\n");
         printf("    on the system to get desktop notifications on song changes, search failings, etc.\n");
         printf("    Note: If no notification programs are installed, ampire may produce bugs.");
