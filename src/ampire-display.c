@@ -38,6 +38,7 @@ typedef struct {
         Size_T_Array history_idxs;
         size_t sel_songfps_index;
         size_t scroll_offset;
+        size_t playlist_scroll_offset;
         int sel_fst_song;                // We have selected at least one song
         int paused;                      // Is the song currently paused
         Music_Adv_Type mat;              // What happens after the song ends, normal, shuffle, or loop
@@ -380,8 +381,6 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
         int max_y, max_x;
         getmaxyx(right_win, max_y, max_x);
 
-        //int half_width = max_x/2;
-
         if (!(g_config.flags & FT_DISABLE_PLAYER_LOGO) && max_x > 50 && max_y > 35) {
                 mvwprintw(right_win, iota(1), 1, "   (");
                 mvwprintw(right_win, iota(1), 1, "   )\\       )          (   (      (");
@@ -393,13 +392,33 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 mvwprintw(right_win, iota(2), 1, "                |_|");
         }
 
-        for (size_t i = 0; i < ctxs->len; ++i) {
+        // Get visible playlist rows (accounting for borders and logo)
+        size_t visible_rows = 9;
+        if (visible_rows > ctxs->len) visible_rows = ctxs->len;
+
+        // Adjust playlist scroll offset to ensure the selected playlist is visible
+        if (ctx->uuid < ctx->playlist_scroll_offset) {
+                ctx->playlist_scroll_offset = ctx->uuid;
+        } else if (ctx->uuid >= ctx->playlist_scroll_offset + visible_rows) {
+                ctx->playlist_scroll_offset = ctx->uuid - visible_rows + 1;
+        }
+
+        // Dots for truncated playlists
+        if (ctx->playlist_scroll_offset > 0) {
+                mvwprintw(right_win, iota(0), 1, "...");
+        }
+        (void)iota(1);
+
+        // Display playlists
+        for (size_t i = ctx->playlist_scroll_offset;
+             i < ctxs->len && i < ctx->playlist_scroll_offset + visible_rows;
+             ++i) {
                 if (i == ctx->uuid) {
                         wattron(right_win, A_REVERSE);
                 }
-                mvwprintw(right_win, iota(0), 1, "[ %zu ] %s", i+1, ctxs->data[i].pname);
+                mvwprintw(right_win, iota(0), 1, "[%s]", ctxs->data[i].pname);
                 if (ctxs->data[i].playlist_modified) {
-                        const size_t N = strlen("[  ] ") + 1 + strlen(ctxs->data[i].pname) + 1;
+                        const size_t N = strlen("[] ") + strlen(ctxs->data[i].pname);
                         mvwprintw(right_win, iota(0), N, " (modified)");
                 }
                 (void)iota(1);
@@ -408,20 +427,23 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 }
         }
 
+        // Dots for truncated playlists
+        if (ctx->playlist_scroll_offset + visible_rows < ctxs->len) {
+                mvwprintw(right_win, iota(1), 1, "...");
+        }
+
+        // Rest of the function remains the same
         (void)iota(1);
 
         // Display currently playing info in right window
         if (ctx && ctx->currently_playing_index != -1) {
-                // "Now Playing" animation
+                // ... (unchanged code for "Now Playing", playlist info, etc.)
+                // Ensure iota is incremented correctly to avoid overlap
                 const char *base_text = !ctx->paused ? "-=-=- Now Playing -=-=" : "-=-=- PAUSED -=-=";
-                int base_len = strlen(base_text); // 22 characters
-                int display_width = max_x - 2; // Account for borders
-                if (display_width < 0) {
-                        display_width = 0; // Minimum
-                }
-                if (display_width > base_len) {
-                        display_width = base_len; // Cap at base text length
-                }
+                int base_len = strlen(base_text);
+                int display_width = max_x - 2;
+                if (display_width < 0) display_width = 0;
+                if (display_width > base_len) display_width = base_len;
                 char display_text[display_width + 1];
                 int frame = (SDL_GetTicks() / 200) % base_len;
                 for (int i = 0; i < display_width; ++i) {
@@ -438,7 +460,7 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 Uint64 current_ticks = SDL_GetTicks();
                 Uint64 elapsed_ms = ctx->paused ? (ctx->pause_start - ctx->start_ticks - ctx->paused_ticks)
                         : (current_ticks - ctx->start_ticks - ctx->paused_ticks);
-                int time_played = elapsed_ms / 1000; // Convert to seconds
+                int time_played = elapsed_ms / 1000;
 
                 char time_str[16];
                 format_time(time_played, time_str, sizeof(time_str));
@@ -457,19 +479,19 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 mvwprintw(right_win, iota(1), strlen("Mode: ")+1, "%s",
                           ctx->mat == MAT_NORMAL ? "Normal" : ctx->mat == MAT_SHUFFLE ? "Shuffle" : "Loop");
 
-                int total_blocks = 12; // Each block represents ~10% of volume
-                int filled_blocks = (g_volume * total_blocks + MIX_MAX_VOLUME) / MIX_MAX_VOLUME; // Round up
+                int total_blocks = 12;
+                int filled_blocks = (g_volume * total_blocks + MIX_MAX_VOLUME) / MIX_MAX_VOLUME;
                 mvwprintw(right_win, iota(0), 1, "Volume: [");
                 if (g_volume == 0) {
                         mvwprintw(right_win, iota(1), strlen("Volume: [") + 1, "MUTE");
                 } else {
                         for (int i = 0; i < total_blocks+1; i++) {
-                            if (i < filled_blocks) {
-                                    if (i+1 == filled_blocks) { waddch(right_win, '|'); }
-                                    else { waddch(right_win, '*'); }
-                            } else {
-                                    waddch(right_win, '.');
-                            }
+                                if (i < filled_blocks) {
+                                        if (i+1 == filled_blocks) { waddch(right_win, '|'); }
+                                        else { waddch(right_win, '*'); }
+                                } else {
+                                        waddch(right_win, '.');
+                                }
                         }
                 }
                 waddch(right_win, ']');
@@ -479,12 +501,10 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
 
                 if (ctx->history_idxs.len > 0) {
                         int histsz = g_config.history_sz;
-                        // Adjust history size based on available vertical space
-                        int available_lines = max_y - iota(0) - 5; // Reserve lines for "Up Next"
+                        int available_lines = max_y - iota(0) - 5;
                         if (available_lines < histsz) {
-                                histsz = available_lines > 0 ? available_lines : 0; // Non-negative
+                                histsz = available_lines > 0 ? available_lines : 0;
                         }
-                        // Cap at g_config.history_sz
                         histsz = histsz > g_config.history_sz ? g_config.history_sz : histsz;
 
                         size_t start = ctx->history_idxs.len > histsz ? ctx->history_idxs.len - histsz : 0;
@@ -505,10 +525,11 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                                 if (!ctx->paused && i == ctx->history_idxs.len - 1) {
                                         const char *equalizer_frames[] = {"|   ", "||  ", "||| ", "||||"};
                                         int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]);
-                                        int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms
+                                        int frame = (SDL_GetTicks() / 200) % frame_count;
                                         int N = strlen(ctx->songnames.data[ctx->history_idxs.data[i]]);
                                         int loc = N > max_x/2 ? max_x/2 + 3 : N;
-                                        mvwprintw(right_win, iota(0)+j, loc+6, "%s", equalizer_frames[frame]); }
+                                        mvwprintw(right_win, iota(0)+j, loc+6, "%s", equalizer_frames[frame]);
+                                }
                                 if (i != ctx->history_idxs.len - 1) {
                                         wattroff(right_win, A_DIM);
                                 } else {
@@ -528,6 +549,169 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
 
         wrefresh(right_win);
 }
+
+/* static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) { */
+/*         (void)iota(-1); */
+
+/*         werase(right_win); */
+/*         box(right_win, 0, 0); */
+/*         int max_y, max_x; */
+/*         getmaxyx(right_win, max_y, max_x); */
+
+/*         //int half_width = max_x/2; */
+
+/*         if (!(g_config.flags & FT_DISABLE_PLAYER_LOGO) && max_x > 50 && max_y > 35) { */
+/*                 mvwprintw(right_win, iota(1), 1, "   ("); */
+/*                 mvwprintw(right_win, iota(1), 1, "   )\\       )          (   (      ("); */
+/*                 mvwprintw(right_win, iota(1), 1, "((((_)(    (     `  )  )\\  )(    ))\\"); */
+/*                 mvwprintw(right_win, iota(1), 1, " )\\ _ )\\   )\\  ' /(/( ((_)(()\\  /((_)"); */
+/*                 mvwprintw(right_win, iota(1), 1, " (_)_\\(_)_((_)) ((_)_\\ (_) ((_)(_))"); */
+/*                 mvwprintw(right_win, iota(1), 1, "  / _ \\ | '  \\()| '_ \\)| || '_|/ -_)"); */
+/*                 mvwprintw(right_win, iota(1), 1, " /_/ \\_\\|_|_|_| | .__/ |_||_|  \\___| v" VERSION); */
+/*                 mvwprintw(right_win, iota(2), 1, "                |_|"); */
+/*         } */
+
+/*         if (ctxs->len > 9) { */
+/*                 mvwprintw(right_win, iota(1), 1, "^"); */
+/*         } */
+/*         for (size_t i = 0; i < ctxs->len; ++i) { */
+/*                 if (i == ctx->uuid) { */
+/*                         wattron(right_win, A_REVERSE); */
+/*                 } */
+/*                 mvwprintw(right_win, iota(0), 1, "[ %zu ] %s", i+1, ctxs->data[i].pname); */
+/*                 if (ctxs->data[i].playlist_modified) { */
+/*                         const size_t N = strlen("[  ] ") + 1 + strlen(ctxs->data[i].pname) + 1; */
+/*                         mvwprintw(right_win, iota(0), N, " (modified)"); */
+/*                 } */
+/*                 (void)iota(1); */
+/*                 if (i == ctx->uuid) { */
+/*                         wattroff(right_win, A_REVERSE); */
+/*                 } */
+/*         } */
+/*         if (ctxs->len > 9) { */
+/*                 mvwprintw(right_win, iota(0), 1, "v"); */
+/*         } */
+
+/*         (void)iota(1); */
+
+/*         // Display currently playing info in right window */
+/*         if (ctx && ctx->currently_playing_index != -1) { */
+/*                 // "Now Playing" animation */
+/*                 const char *base_text = !ctx->paused ? "-=-=- Now Playing -=-=" : "-=-=- PAUSED -=-="; */
+/*                 int base_len = strlen(base_text); // 22 characters */
+/*                 int display_width = max_x - 2; // Account for borders */
+/*                 if (display_width < 0) { */
+/*                         display_width = 0; // Minimum */
+/*                 } */
+/*                 if (display_width > base_len) { */
+/*                         display_width = base_len; // Cap at base text length */
+/*                 } */
+/*                 char display_text[display_width + 1]; */
+/*                 int frame = (SDL_GetTicks() / 200) % base_len; */
+/*                 for (int i = 0; i < display_width; ++i) { */
+/*                         display_text[i] = base_text[(frame + i) % base_len]; */
+/*                 } */
+/*                 display_text[display_width] = '\0'; */
+/*                 wattron(right_win, A_BOLD); */
+/*                 mvwprintw(right_win, iota(2), 1, "%s", display_text); */
+/*                 wattroff(right_win, A_BOLD); */
+
+/*                 mvwprintw(right_win, iota(1), 1, "> Playlist: %s (%d tracks)", ctx->pname, ctx->numtracks); */
+/*                 mvwprintw(right_win, iota(1), 1, "> Current: %.*s", max_x - 2, shstr(ctx->songnames.data[ctx->currently_playing_index], max_x/2)); */
+
+/*                 Uint64 current_ticks = SDL_GetTicks(); */
+/*                 Uint64 elapsed_ms = ctx->paused ? (ctx->pause_start - ctx->start_ticks - ctx->paused_ticks) */
+/*                         : (current_ticks - ctx->start_ticks - ctx->paused_ticks); */
+/*                 int time_played = elapsed_ms / 1000; // Convert to seconds */
+
+/*                 char time_str[16]; */
+/*                 format_time(time_played, time_str, sizeof(time_str)); */
+
+/*                 if (ctx->paused) { */
+/*                         wattron(right_win, A_REVERSE | A_BLINK); */
+/*                         mvwprintw(right_win, iota(1), 1, "Paused"); */
+/*                         wattroff(right_win, A_REVERSE | A_BLINK); */
+/*                 } else { */
+/*                         mvwprintw(right_win, iota(1), 1, "> Elapsed: %s", time_str); */
+/*                 } */
+
+/*                 (void)iota(1); */
+
+/*                 mvwprintw(right_win, iota(0), 1, "Mode: "); */
+/*                 mvwprintw(right_win, iota(1), strlen("Mode: ")+1, "%s", */
+/*                           ctx->mat == MAT_NORMAL ? "Normal" : ctx->mat == MAT_SHUFFLE ? "Shuffle" : "Loop"); */
+
+/*                 int total_blocks = 12; // Each block represents ~10% of volume */
+/*                 int filled_blocks = (g_volume * total_blocks + MIX_MAX_VOLUME) / MIX_MAX_VOLUME; // Round up */
+/*                 mvwprintw(right_win, iota(0), 1, "Volume: ["); */
+/*                 if (g_volume == 0) { */
+/*                         mvwprintw(right_win, iota(1), strlen("Volume: [") + 1, "MUTE"); */
+/*                 } else { */
+/*                         for (int i = 0; i < total_blocks+1; i++) { */
+/*                             if (i < filled_blocks) { */
+/*                                     if (i+1 == filled_blocks) { waddch(right_win, '|'); } */
+/*                                     else { waddch(right_win, '*'); } */
+/*                             } else { */
+/*                                     waddch(right_win, '.'); */
+/*                             } */
+/*                         } */
+/*                 } */
+/*                 waddch(right_win, ']'); */
+/*                 if (g_volume > 0) { */
+/*                         mvwprintw(right_win, iota(1), total_blocks + strlen("Volume: [") + 4, "%d%%", (g_volume*100)/MIX_MAX_VOLUME); */
+/*                 } */
+
+/*                 if (ctx->history_idxs.len > 0) { */
+/*                         int histsz = g_config.history_sz; */
+/*                         // Adjust history size based on available vertical space */
+/*                         int available_lines = max_y - iota(0) - 5; // Reserve lines for "Up Next" */
+/*                         if (available_lines < histsz) { */
+/*                                 histsz = available_lines > 0 ? available_lines : 0; // Non-negative */
+/*                         } */
+/*                         // Cap at g_config.history_sz */
+/*                         histsz = histsz > g_config.history_sz ? g_config.history_sz : histsz; */
+
+/*                         size_t start = ctx->history_idxs.len > histsz ? ctx->history_idxs.len - histsz : 0; */
+/*                         mvwprintw(right_win, iota(0), 1, "History"); */
+/*                         if (start == 0) { */
+/*                                 (void)iota(1); */
+/*                         } */
+/*                         if (start != 0) { */
+/*                                 mvwprintw(right_win, iota(1), strlen("History")+1, " [%zu hidden]", ctx->history_idxs.len-histsz); */
+/*                         } */
+/*                         for (size_t i = start, j = 0; i < ctx->history_idxs.len; ++i, ++j) { */
+/*                                 if (i != ctx->history_idxs.len - 1) { */
+/*                                         wattron(right_win, A_DIM); */
+/*                                 } else { */
+/*                                         wattron(right_win, A_BOLD); */
+/*                                 } */
+/*                                 mvwprintw(right_win, iota(0)+j, 3, "| %s", shstr(ctx->songnames.data[ctx->history_idxs.data[i]], max_x/2)); */
+/*                                 if (!ctx->paused && i == ctx->history_idxs.len - 1) { */
+/*                                         const char *equalizer_frames[] = {"|   ", "||  ", "||| ", "||||"}; */
+/*                                         int frame_count = sizeof(equalizer_frames) / sizeof(equalizer_frames[0]); */
+/*                                         int frame = (SDL_GetTicks() / 200) % frame_count; // Cycle every 200ms */
+/*                                         int N = strlen(ctx->songnames.data[ctx->history_idxs.data[i]]); */
+/*                                         int loc = N > max_x/2 ? max_x/2 + 3 : N; */
+/*                                         mvwprintw(right_win, iota(0)+j, loc+6, "%s", equalizer_frames[frame]); } */
+/*                                 if (i != ctx->history_idxs.len - 1) { */
+/*                                         wattroff(right_win, A_DIM); */
+/*                                 } else { */
+/*                                         wattroff(right_win, A_BOLD); */
+/*                                 } */
+/*                         } */
+/*                         iota(ctx->history_idxs.len >= histsz ? histsz : ctx->history_idxs.len); */
+/*                         mvwprintw(right_win, iota(0), 1, "Up Next"); */
+/*                         mvwprintw(right_win, iota(1), strlen("Up Next")+1, ": [%s]", shstr(ctx->songnames.data[ctx->upnext_idx], max_x/2)); */
+/*                 } */
+/*         } else { */
+/*                 if (ctx) { */
+/*                         mvwprintw(right_win, iota(1), 1, "Playlist: %s", ctx->pname); */
+/*                 } */
+/*                 mvwprintw(right_win, iota(1), 1, "No Song Playing"); */
+/*         } */
+
+/*         wrefresh(right_win); */
+/* } */
 
 static void draw_song_list(Ctx *ctx) {
         werase(left_win);
@@ -808,6 +992,7 @@ Ctx ctx_create(Playlist *p) {
                 .songnames = dyn_array_empty(Str_Array),
                 .sel_songfps_index = 0,
                 .scroll_offset = 0,
+                .playlist_scroll_offset = 0,
                 .sel_fst_song = 0,
                 .paused = 0,
                 .mat = MAT_NORMAL,
@@ -957,18 +1142,15 @@ void handle_oneshot_sigint(int sig) {
 void run(const Playlist_Array *playlists) {
         srand((unsigned int)time(NULL));
         Ctx_Array ctxs = dyn_array_empty(Ctx_Array);
-        size_t initial_ctx = 0;
         size_t ctx_idx = 0;
 
         for (size_t i = 0; i < playlists->len; ++i) {
                 dyn_array_append(ctxs, ctx_create(&playlists->data[i]));
-                if (playlists->data[i].from_cli) {
-                        initial_ctx = i;
-                } else {
+                if (!playlists->data[i].from_cli) {
                         ctxs.data[ctxs.len-1].playlist_saved = 1;
                 }
         }
-        g_ctx = &ctxs.data[initial_ctx];
+        g_ctx = &ctxs.data[0];
 
         if (g_config.volume != -1) {
                 g_volume = g_config.volume;

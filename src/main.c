@@ -348,11 +348,6 @@ int main(int argc, char **argv) {
                 }
         }
 
-        if (playlists.len > 9) {
-                printf("Ampire currently only supports up to 9 separate playlists");
-                exit(1);
-        }
-
         run(&playlists);
 
         // TODO: memory free().
