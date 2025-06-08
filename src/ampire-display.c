@@ -992,6 +992,7 @@ void run(const Playlist_Array *playlists) {
         atexit(cleanup);
 
         if (g_config.flags & FT_ONESHOT) {
+                // --oneshot,-o mode, not using ncurses and the TUI.
                 const char *fp = playlists->data[playlists->len-1].songfps.data[0];
                 signal(SIGINT, handle_oneshot_sigint);
                 play_music(g_ctx, fp);
@@ -1041,6 +1042,22 @@ void run(const Playlist_Array *playlists) {
                 case 'G': {
                         g_ctx->sel_songfps_index = g_ctx->songfps->len - 1;
                         adjust_scroll_offset(g_ctx);
+                } break;
+                case 'J': {
+                        if (ctx_idx >= ctxs.len-1) {
+                                ctx_idx = 0;
+                        } else {
+                                ++ctx_idx;
+                        }
+                        g_ctx = &ctxs.data[ctx_idx];
+                } break;
+                case 'K': {
+                        if (ctx_idx == 0) {
+                                ctx_idx = ctxs.len-1;
+                        } else {
+                                --ctx_idx;
+                        }
+                        g_ctx = &ctxs.data[ctx_idx];
                 } break;
                 case 'j':
                 case KEY_DOWN: {

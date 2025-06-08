@@ -58,6 +58,7 @@ void usage(void) {
         printf("        --%s            display various notifications\n", FLAG_2HY_NOTIF);
         printf("        --%s       print all saved songs\n", FLAG_2HY_SHOW_SAVES);
         printf("        --%s   do not show the logo in the player\n", FLAG_2HY_DISABLE_PLAYER_LOGO);
+        printf("        --%s         show the keybinds\n", FLAG_2HY_CONTROLS);
         printf("        --%s=v         set the volume as `v` where 0 <= v <= 128 (note: not a percentage)\n", FLAG_2HY_VOLUME);
         printf("        --%s=p       set the playlist to index `p`\n", FLAG_2HY_PLAYLIST);
         printf("        --%s=i     set the history size to `i`\n", FLAG_2HY_HISTORY_SZ);
@@ -232,7 +233,7 @@ static void show_help_for_flag(const char *flag) {
 }
 
 static void controls(void) {
-        printf("| Keybinds            | Action                                                    |\n");
+        printf("| Keybind             | Action                                                    |\n");
         printf("|---------------------+-----------------------------------------------------------|\n");
         printf("| [ DOWN ], [ j ]     | Move down in the song selection                           |\n");
         printf("| [ UP ], [ k ]       | Move up in the song selection                             |\n");
@@ -258,6 +259,8 @@ static void controls(void) {
         printf("| [ CTRL+q ]          | Quit                                                      |\n");
         printf("| [ CTRL+s ]          | Save song list                                            |\n");
         printf("| [ 1..=9 ]           | Select song list                                          |\n");
+        printf("| [ J ]               | Next song list                                            |\n");
+        printf("| [ K ]               | Previous song list                                        |\n");
         exit(0);
 }
 

@@ -45,7 +45,7 @@ then try running it again.
 
 ** Controls
 
-| Keybinds            | Action                                                    |
+| Keybind             | Action                                                    |
 |---------------------+-----------------------------------------------------------|
 | [ DOWN ], [ j ]     | Move down in the song selection                           |
 | [ UP ], [ k ]       | Move up in the song selection                             |
@@ -71,6 +71,8 @@ then try running it again.
 | [ CTRL+q ]          | Quit                                                      |
 | [ CTRL+s ]          | Save song list                                            |
 | [ 1..=9 ]           | Select song list                                          |
+| [ J ]               | Next song list                                            |
+| [ K ]               | Previous song list                                        |
 
 You can see this table by calling =ampire --controls=.
 
