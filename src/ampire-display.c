@@ -57,6 +57,8 @@ static int g_volume = 68;
 static int g_last_volume = 0;
 static int g_scrn_width = 0;
 static int g_scrn_height = 0;
+static volatile sig_atomic_t g_oneshot_keep_running = 1;
+static volatile sig_atomic_t g_resize_flag = 0;
 
 DYN_ARRAY_TYPE(Ctx, Ctx_Array);
 
@@ -71,8 +73,14 @@ static WINDOW *right_win; // Window for currently playing info
 static void pause_audio(Ctx *ctx);
 
 static void cleanup(void) {
-        if (left_win) delwin(left_win);
-        if (right_win) delwin(right_win);
+        if ((g_config.flags & FT_ONESHOT) == 0) {
+                // Do not need to clean up ncurses
+                // if --oneshot is used as ncurses
+                // is not initialized with this flag.
+                if (left_win) delwin(left_win);
+                if (right_win) delwin(right_win);
+                endwin();
+        }
         Mix_HookMusicFinished(NULL);
         Mix_HaltMusic();
         if (g_ctx && g_ctx->current_music) {
@@ -80,7 +88,6 @@ static void cleanup(void) {
                 g_ctx->current_music = NULL;
         }
         Mix_CloseAudio();
-        endwin();
         SDL_Quit();
 }
 
@@ -564,8 +571,6 @@ static void draw_song_list(Ctx *ctx) {
         wrefresh(left_win);
 }
 
-static volatile sig_atomic_t g_resize_flag = 0;
-
 static void resize_signal_handler(int sig) {
         g_resize_flag = 1;
 }
@@ -944,6 +949,10 @@ static void remove_duplicates(Ctx *ctx) {
         dyn_array_free(idxs);
 }
 
+void handle_oneshot_sigint(int sig) {
+        g_oneshot_keep_running = 0;
+}
+
 // Does not take ownership of playlists
 void run(const Playlist_Array *playlists) {
         srand((unsigned int)time(NULL));
@@ -974,15 +983,23 @@ void run(const Playlist_Array *playlists) {
         }
 
         SDL_SetLogPriorities(SDL_LOG_PRIORITY_ERROR);
-        atexit(cleanup);
 
         if (SDL_Init(SDL_INIT_AUDIO) < 0) {
                 fprintf(stderr, "SDL could not initialize: %s\n", SDL_GetError());
                 exit(1);
         }
 
+        atexit(cleanup);
+
+        if (g_config.flags & FT_ONESHOT) {
+                const char *fp = playlists->data[playlists->len-1].songfps.data[0];
+                signal(SIGINT, handle_oneshot_sigint);
+                play_music(g_ctx, fp);
+                while (g_oneshot_keep_running);
+                return;
+        }
+
         init_ncurses();
-        //signal(SIGWINCH, resize_windows);
         signal(SIGWINCH, resize_signal_handler);
 
         int ch;

@@ -17,6 +17,7 @@
 #define FLAG_1HY_RECURSIVE 'r'
 #define FLAG_1HY_CLR_SAVED_SONGS 'c'
 #define FLAG_1HY_VERSION 'v'
+#define FLAG_1HY_ONESHOT 'o'
 #define FLAG_2HY_HELP "help"
 #define FLAG_2HY_NOTIF "notif"
 #define FLAG_2HY_RECURSIVE "recursive"
@@ -28,6 +29,7 @@
 #define FLAG_2HY_VERSION "version"
 #define FLAG_2HY_CONTROLS "controls"
 #define FLAG_2HY_HISTORY_SZ "history-sz"
+#define FLAG_2HY_ONESHOT "oneshot"
 
 struct {
         uint32_t flags;
@@ -48,15 +50,16 @@ void usage(void) {
         printf("Ampire v" VERSION ", (compiler) " COMPILER_INFO "\n\n");
         printf("Usage: ampire [dir...] [options...]\n");
         printf("Options:\n");
-        printf("    -%c, --%s[=<flag>|*]  print this help message or get help on an individual flag\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
+        printf("    -%c, --%s[=<flag>|*]  print this help message or get help on an individual flag or `*` for all\n", FLAG_1HY_HELP, FLAG_2HY_HELP);
         printf("    -%c, --%s          view version\n", FLAG_1HY_VERSION, FLAG_2HY_VERSION);
         printf("    -%c, --%s        enable recursive search for songs\n", FLAG_1HY_RECURSIVE, FLAG_2HY_RECURSIVE);
         printf("    -%c, --%s            clear saved songs in config file\n", FLAG_1HY_CLR_SAVED_SONGS, FLAG_2HY_CLR_SAVED_SONGS);
-        printf("        --%s            display notifications on song change\n", FLAG_2HY_NOTIF);
+        printf("    -%c, --%s          play a single song without the TUI\n", FLAG_1HY_ONESHOT, FLAG_2HY_ONESHOT);
+        printf("        --%s            display various notifications\n", FLAG_2HY_NOTIF);
         printf("        --%s       print all saved songs\n", FLAG_2HY_SHOW_SAVES);
         printf("        --%s   do not show the logo in the player\n", FLAG_2HY_DISABLE_PLAYER_LOGO);
         printf("        --%s=v         set the volume as `v` where 0 <= v <= 128 (note: not a percentage)\n", FLAG_2HY_VOLUME);
-        printf("        --%s=p       set the playlist to `p`\n", FLAG_2HY_PLAYLIST);
+        printf("        --%s=p       set the playlist to index `p`\n", FLAG_2HY_PLAYLIST);
         printf("        --%s=i     set the history size to `i`\n", FLAG_2HY_HISTORY_SZ);
         exit(0);
 }
@@ -64,6 +67,16 @@ void usage(void) {
 static void version(void) {
         printf("Ampire v" VERSION "\n");
         exit(0);
+}
+
+static void oneshot_info(void) {
+        printf("--help(%c, %s):\n", FLAG_1HY_ONESHOT, FLAG_2HY_ONESHOT);
+        printf("    Play a single music file without the TUI.\n");
+        printf("    Use this flag when you just want to easily play some audio\n");
+        printf("    file without initializing the entire Ampire suite.\n");
+        printf("    Example:\n");
+        printf("        ampire -o ~/Music/song1.mp3\n");
+
 }
 
 static void history_sz_info(void) {
@@ -174,6 +187,7 @@ static void show_help_for_flag(const char *flag) {
                 playlist_info,
                 controls_info,
                 history_sz_info,
+                oneshot_info,
         };
 
 #define OHYEQ(n, flag, actual) ((n) == 1 && (flag)[0] == (actual))
@@ -204,8 +218,14 @@ static void show_help_for_flag(const char *flag) {
                 for (size_t i = 0; i < sizeof(help)/8; ++i) {
                         help[i]();
                 }
+        } else if (OHYEQ(n, flag, FLAG_1HY_ONESHOT) || !strcmp(flag, FLAG_2HY_ONESHOT)) {
+                help[11]();
         } else {
-                err_wargs("help(%s) info does not exist", flag);
+                fprintf(stderr, "help(%s) info does not exist\n", flag);
+                if (*flag == '-') {
+                        fprintf(stderr, "Note: do not put `-` in the flag name you are getting help for\n", flag);
+                }
+                exit(1);
         }
         exit(0);
 #undef OHYEQ
@@ -291,11 +311,19 @@ int main(int argc, char **argv) {
                         g_config.history_sz = atoi(arg.eq);
                 } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_CONTROLS)) {
                         controls();
+                } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_ONESHOT) {
+                        g_config.flags |= FT_ONESHOT;
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_ONESHOT)) {
+                        g_config.flags |= FT_ONESHOT;
                 } else if (arg.hyphc > 0) {
                         err_wargs("invalid flag: %s", arg.start);
                 } else {
                         dyn_array_append(dirs, arg.start);
                 }
+        }
+
+        if (dirs.len != 1 && g_config.flags & FT_ONESHOT) {
+                err("--oneshot flag was used, only one filepath is expected\n");
         }
 
         if (g_config.flags & FT_CLR_SAVED_SONGS) {
