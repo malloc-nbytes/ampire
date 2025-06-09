@@ -36,11 +36,13 @@ struct {
         int volume;
         int playlist;
         int history_sz;
+        int playlist_sz;
 } g_config = {
         .flags = 0x0,
         .volume = -1,
         .playlist = -1,
         .history_sz = 1000,
+        .playlist_sz = 9,
 };
 
 // TODO: fix memory leaks

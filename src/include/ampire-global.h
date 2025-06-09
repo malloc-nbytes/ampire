@@ -8,6 +8,7 @@ extern struct {
         int volume;
         int playlist;
         int history_sz;
+        int playlist_sz;
 } g_config;
 
 #endif // AMPIRE_GLOBAL_H
