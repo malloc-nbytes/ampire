@@ -63,6 +63,7 @@ static volatile sig_atomic_t g_oneshot_keep_running = 1;
 static volatile sig_atomic_t g_resize_flag = 0;
 static int g_playlist_page = 0;
 static int g_total_playlist_pages = 0;
+static int g_original_playlist_sz = 0;
 
 DYN_ARRAY_TYPE(Ctx, Ctx_Array);
 
@@ -395,7 +396,6 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 mvwprintw(right_win, iota(2), 1, "                |_|");
         }
 
-        // Display playlists
         for (size_t i = g_playlist_page*g_config.playlist_sz;
              i < ctxs->len && i < g_playlist_page*g_config.playlist_sz + g_config.playlist_sz; ++i) {
                 if (i == ctx->uuid) {
@@ -412,8 +412,8 @@ static void draw_currently_playing(Ctx *ctx, Ctx_Array *ctxs) {
                 }
         }
 
-        mvwprintw(right_win, iota(0), 1, "<%d", g_playlist_page);
-        mvwprintw(right_win, iota(1), 4, "%d>", g_total_playlist_pages-g_playlist_page);
+        mvwprintw(right_win, iota(0), 1, "<[%d", g_playlist_page);
+        mvwprintw(right_win, iota(1), 5, "%d]>", g_total_playlist_pages-1-g_playlist_page);
 
         (void)iota(1);
 
@@ -959,6 +959,8 @@ void handle_oneshot_sigint(int sig) {
 
 // Does not take ownership of playlists
 void run(const Playlist_Array *playlists) {
+        g_original_playlist_sz = g_config.playlist_sz;
+
         srand((unsigned int)time(NULL));
         Ctx_Array ctxs = dyn_array_empty(Ctx_Array);
         size_t ctx_idx = 0;
@@ -1049,10 +1051,16 @@ void run(const Playlist_Array *playlists) {
                 case 'J': {
                         if (ctx_idx < ctxs.len-1) {
                                 g_ctx = &ctxs.data[++ctx_idx];
+                                if (ctx_idx % g_config.playlist_sz == 0) {
+                                        ++g_playlist_page;
+                                }
                         }
                 } break;
                 case 'K': {
                         if (ctx_idx != 0) {
+                                if (ctx_idx % g_config.playlist_sz == 0) {
+                                        --g_playlist_page;
+                                }
                                 g_ctx = &ctxs.data[--ctx_idx];
                         }
                 } break;
@@ -1116,7 +1124,7 @@ void run(const Playlist_Array *playlists) {
                         }
                 } break;
                 case ']': {
-                        if (g_playlist_page < g_total_playlist_pages) {
+                        if (g_playlist_page < g_total_playlist_pages-1) {
                                 ++g_playlist_page;
                                 ctx_idx = g_playlist_page*g_config.playlist_sz;
                                 g_ctx = &ctxs.data[g_playlist_page*g_config.playlist_sz];

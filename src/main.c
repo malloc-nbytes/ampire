@@ -30,6 +30,7 @@
 #define FLAG_2HY_CONTROLS "controls"
 #define FLAG_2HY_HISTORY_SZ "history-sz"
 #define FLAG_2HY_ONESHOT "oneshot"
+#define FLAG_2HY_PLAYLIST_SZ "playlist-sz"
 
 struct {
         uint32_t flags;
@@ -64,12 +65,20 @@ void usage(void) {
         printf("        --%s=v         set the volume as `v` where 0 <= v <= 128 (note: not a percentage)\n", FLAG_2HY_VOLUME);
         printf("        --%s=p       set the playlist to index `p`\n", FLAG_2HY_PLAYLIST);
         printf("        --%s=i     set the history size to `i`\n", FLAG_2HY_HISTORY_SZ);
+        printf("        --%s=p    set the number of displayed playlists to `p`\n", FLAG_2HY_PLAYLIST_SZ);
         exit(0);
 }
 
 static void version(void) {
         printf("Ampire v" VERSION "\n");
         exit(0);
+}
+
+static void playlist_sz_info(void) {
+        printf("--help(%s):\n", FLAG_2HY_PLAYLIST_SZ);
+        printf("    Change how many playlist entries are displayed (default 9).\n");
+        printf("    Example:\n");
+        printf("        ampire --playlist-sz=5\n");
 }
 
 static void oneshot_info(void) {
@@ -191,6 +200,7 @@ static void show_help_for_flag(const char *flag) {
                 controls_info,
                 history_sz_info,
                 oneshot_info,
+                playlist_sz_info,
         };
 
 #define OHYEQ(n, flag, actual) ((n) == 1 && (flag)[0] == (actual))
@@ -223,6 +233,8 @@ static void show_help_for_flag(const char *flag) {
                 }
         } else if (OHYEQ(n, flag, FLAG_1HY_ONESHOT) || !strcmp(flag, FLAG_2HY_ONESHOT)) {
                 help[11]();
+        } else if (!strcmp(flag, FLAG_2HY_PLAYLIST_SZ)) {
+                help[12]();
         } else {
                 fprintf(stderr, "help(%s) info does not exist\n", flag);
                 if (*flag == '-') {
@@ -314,7 +326,12 @@ int main(int argc, char **argv) {
                         if (!arg.eq)              err("--history-sz expects a value after equals (=)\n");
                         if (!str_isdigit(arg.eq)) err_wargs("--history-sz expects a number, not `%s`\n", arg.eq);
                         g_config.history_sz = atoi(arg.eq);
-                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_CONTROLS)) {
+                } else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_PLAYLIST_SZ)) {
+                        if (!arg.eq)              err("--playlist-sz expects a value after equals (=)\n");
+                        if (!str_isdigit(arg.eq)) err_wargs("--playlist-sz expects a number, not `%s`\n", arg.eq);
+                        g_config.playlist_sz = atoi(arg.eq);
+                }
+                else if (arg.hyphc == 2 && !strcmp(arg.start, FLAG_2HY_CONTROLS)) {
                         controls();
                 } else if (arg.hyphc == 1 && arg.start[0] == FLAG_1HY_ONESHOT) {
                         g_config.flags |= FT_ONESHOT;
