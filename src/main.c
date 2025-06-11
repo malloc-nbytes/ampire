@@ -272,9 +272,10 @@ static void controls(void) {
         printf("| [ CTRL+l ]          | Redraw screen                                             |\n");
         printf("| [ CTRL+q ]          | Quit                                                      |\n");
         printf("| [ CTRL+s ]          | Save song list                                            |\n");
-        printf("| [ 1..=9 ]           | Select song list                                          |\n");
         printf("| [ J ]               | Next song list                                            |\n");
         printf("| [ K ]               | Previous song list                                        |\n");
+        printf("| [ [ ]               | Previous song list page                                   |\n");
+        printf("| [ ] ]               | Next song list page                                       |\n");
         exit(0);
 }
 

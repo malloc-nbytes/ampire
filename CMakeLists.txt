@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25.1)
-project(ampire VERSION 0.1.4)
+project(ampire VERSION 0.1.5)
 
 # Define INSTALL_PREFIX and PROJECT_VERSION as cache variables
 set(INSTALL_PREFIX "" CACHE STRING "The installation prefix")

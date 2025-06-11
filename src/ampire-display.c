@@ -1015,13 +1015,17 @@ void run(const Playlist_Array *playlists) {
                 draw_windows(g_ctx, &ctxs);
                 ch = getch();
 
-                if (isdigit(ch)) {
-                        int idx = (ch-'0') - 1;
-                        if (idx < ctxs.len) {
-                                ctx_idx = idx;
-                                g_ctx = &ctxs.data[ctx_idx];
-                        }
-                }
+                // TODO: enable this feature again.
+                // it currently is bugged when you use it
+                // and it goes out of the scope of the
+                // g_config.playlist_sz.
+                /* if (isdigit(ch)) { */
+                /*         int idx = (ch-'0') - 1; */
+                /*         if (idx < ctxs.len) { */
+                /*                 ctx_idx = idx; */
+                /*                 g_ctx = &ctxs.data[ctx_idx]; */
+                /*         } */
+                /* } */
 
                 switch (ch) {
                 case 'q':
