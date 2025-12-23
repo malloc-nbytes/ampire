@@ -53,6 +53,7 @@ typedef struct {
         int upnext_idx;                  // The index of the next song to be played
         int playlist_modified;           // Has the current playlist been modified?
         int playlist_saved;
+        Size_T_Array queue;              // The 'next-up' songs
 } Ctx;
 
 static int g_volume = 68;
@@ -146,7 +147,10 @@ static void format_time(int seconds, char *buf, size_t bufsize) {
 
 void handle_upnext(Ctx *ctx) {
         size_t r = 0;
-        if (ctx->mat == MAT_NORMAL) {
+        if (ctx->queue.len > 0) {
+                r = ctx->queue.data[0];
+        }
+        else if (ctx->mat == MAT_NORMAL) {
                 r = (ctx->currently_playing_index + 1) % ctx->songfps->len;
         } else if (ctx->mat == MAT_SHUFFLE) {
                 r = getrand(ctx);
@@ -246,6 +250,9 @@ static void music_finished(void) {
         assert(g_ctx);
         g_ctx->currently_playing_index = g_ctx->sel_songfps_index = g_ctx->upnext_idx;
         dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index);
+        if (g_ctx->queue.len > 0) {
+                dyn_array_rm_at(g_ctx->queue, 0);
+        }
         Mix_HaltMusic();
         start_song(g_ctx);
         adjust_scroll_offset(g_ctx);
@@ -556,7 +563,15 @@ static void draw_song_list(Ctx *ctx) {
                                 wattron(left_win, A_REVERSE);
                         }
                         // Print at x=1 to avoid left border, truncate to fit inside right border
-                        mvwprintw(left_win, display_row, 1, "%.*s", max_x - 2, shstr(ctx->songnames.data[i], max_x/2 + 10));
+                        int is_in_queue = 0;
+                        for (size_t j = 0; j < ctx->queue.len; ++j) {
+                                if (ctx->queue.data[j] == i) {
+                                        mvwprintw(left_win, display_row, 1, "*");
+                                        is_in_queue = 1;
+                                        break;
+                                }
+                        }
+                        mvwprintw(left_win, display_row, 1+is_in_queue, "%.*s", max_x - 2, shstr(ctx->songnames.data[i], max_x/2 + 10));
                         if (i == ctx->sel_songfps_index) {
                                 wattroff(left_win, A_REVERSE);
                         }
@@ -801,7 +816,7 @@ static void handle_search(Ctx *ctx, size_t startfrom, int rev, char *prevsearch)
         adjust_scroll_offset(ctx);
 }
 
-Ctx ctx_create(Playlist *p) {
+static Ctx ctx_create(Playlist *p) {
         static size_t uuid = 0;
         Ctx ctx = (Ctx) {
                 .uuid = uuid++,
@@ -825,6 +840,7 @@ Ctx ctx_create(Playlist *p) {
                 .upnext_idx = 0,
                 .playlist_modified = 0,
                 .playlist_saved = 0,
+                .queue = dyn_array_empty(Size_T_Array),
         };
         for (size_t i = 0; i < p->songfps.len; ++i) {
                 dyn_array_append(ctx.songnames,
@@ -953,7 +969,7 @@ static void remove_duplicates(Ctx *ctx) {
         dyn_array_free(idxs);
 }
 
-void handle_oneshot_sigint(int sig) {
+static void handle_oneshot_sigint(int sig) {
         g_oneshot_keep_running = 0;
 }
 
@@ -1119,6 +1135,10 @@ void run(const Playlist_Array *playlists) {
                 case '=':
                 case '+': {
                         volume_up(g_ctx);
+                } break;
+                case 'u': {
+                        dyn_array_append(g_ctx->queue, g_ctx->sel_songfps_index);
+                        handle_upnext(g_ctx);
                 } break;
                 case '[': {
                         if (g_playlist_page > 0) {
