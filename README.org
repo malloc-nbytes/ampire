@@ -57,6 +57,7 @@ then try running it again.
 | [ + ], [ = ]        | Volume up                                                 |
 | [ a ]               | Toggle song advancement between normal, shuffle, and loop |
 | [ m ]               | Mute/unmute                                               |
+| [ u ]               | Add to 'up-next' (queue)                                  |
 | [ SPACE ]           | Pause / play                                              |
 | [ f ]               | Open a file dialogue (unimplemented)                      |
 | [ / ]               | Search the song list with regex                           |
