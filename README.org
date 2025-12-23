@@ -5,6 +5,8 @@
 *Note:* This project is still in the early development stages, so
 there are many bugs and it may not work properly.
 
+*Note:* This package can be installed through =forge= [ https://github.com/malloc-nbytes/forge ].
+
 =ampire= is a simple music player that is ran in the terminal.
 
 ** Dependencies
