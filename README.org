@@ -69,6 +69,7 @@ then try running it again.
 | [ g ]               | Jump to first song                                        |
 | [ G ]               | Jump to last song                                         |
 | [ ! ]               | Remove duplicate tracks from playlist                     |
+| [ z ]               | Reset view to currently playing                           |
 | [ ENTER ]           | Play song from song list                                  |
 | [ CTRL+l ]          | Redraw screen                                             |
 | [ CTRL+q ]          | Quit                                                      |

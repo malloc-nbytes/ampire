@@ -973,6 +973,13 @@ static void handle_oneshot_sigint(int sig) {
         g_oneshot_keep_running = 0;
 }
 
+static void
+reset_view(Ctx *ctx)
+{
+        ctx->sel_songfps_index = ctx->currently_playing_index;
+        adjust_scroll_offset(ctx);
+}
+
 // Does not take ownership of playlists
 void run(const Playlist_Array *playlists) {
         g_original_playlist_sz = g_config.playlist_sz;
@@ -1153,6 +1160,9 @@ void run(const Playlist_Array *playlists) {
                                 ctx_idx = g_playlist_page*g_config.playlist_sz;
                                 g_ctx = &ctxs.data[g_playlist_page*g_config.playlist_sz];
                         }
+                } break;
+                case 'z': {
+                        reset_view(g_ctx);
                 } break;
                 case 'd':
                 case 'D': {
