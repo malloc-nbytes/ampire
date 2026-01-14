@@ -9,6 +9,14 @@ there are many bugs and it may not work properly.
 
 =ampire= is a simple music player that is ran in the terminal.
 
+** Usage
+
+You can launch it by just typing =ampire=. However, if no songs have been initalized,
+the file selection dialoge will not work (unimplemented). So add some songs by doing:
+=ampire <path_to_musc>= or by doing =ampire -r <path_to_musc>= for a recursive search.
+
+After this, =ampire= will remember those paths and you can just call it normally.
+
 ** Dependencies
 
 - SDL3       <vendored> (no download required)

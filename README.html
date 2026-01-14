@@ -3,7 +3,7 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
-<!-- 2025-12-27 Sat 11:45 -->
+<!-- 2026-01-14 Wed 16:55 -->
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>&lrm;</title>
@@ -199,16 +199,17 @@
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents" role="doc-toc">
 <ul>
-<li><a href="#org2a489a6">1. ampire</a>
+<li><a href="#org7beba5c">1. ampire</a>
 <ul>
-<li><a href="#orga38e019">1.1. Dependencies</a></li>
-<li><a href="#orgceacecf">1.2. Compiling and Installing</a></li>
-<li><a href="#org96b3858">1.3. Controls</a></li>
-<li><a href="#orgb164713">1.4. Known Bugs</a></li>
-<li><a href="#orgdf3a133">1.5. Screenshots</a>
+<li><a href="#org0f5a9f4">1.1. Usage</a></li>
+<li><a href="#org0146354">1.2. Dependencies</a></li>
+<li><a href="#orgc57f1a2">1.3. Compiling and Installing</a></li>
+<li><a href="#org89e584b">1.4. Controls</a></li>
+<li><a href="#org911c129">1.5. Known Bugs</a></li>
+<li><a href="#org892bd2d">1.6. Screenshots</a>
 <ul>
-<li><a href="#orga0ecad7">1.5.1. Large Terminal</a></li>
-<li><a href="#org76ae924">1.5.2. Small Terminal</a></li>
+<li><a href="#orgaf8d020">1.6.1. Large Terminal</a></li>
+<li><a href="#org1670ad6">1.6.2. Small Terminal</a></li>
 </ul>
 </li>
 </ul>
@@ -216,11 +217,11 @@
 </ul>
 </div>
 </div>
-<div id="outline-container-org2a489a6" class="outline-2">
-<h2 id="org2a489a6"><span class="section-number-2">1.</span> ampire</h2>
+<div id="outline-container-org7beba5c" class="outline-2">
+<h2 id="org7beba5c"><span class="section-number-2">1.</span> ampire</h2>
 <div class="outline-text-2" id="text-1">
 
-<div id="org734a29d" class="figure">
+<div id="orga194419" class="figure">
 <p><img src="./assets/logo.png" alt="logo.png" />
 </p>
 </div>
@@ -238,9 +239,23 @@ there are many bugs and it may not work properly.
 <code>ampire</code> is a simple music player that is ran in the terminal.
 </p>
 </div>
-<div id="outline-container-orga38e019" class="outline-3">
-<h3 id="orga38e019"><span class="section-number-3">1.1.</span> Dependencies</h3>
+<div id="outline-container-org0f5a9f4" class="outline-3">
+<h3 id="org0f5a9f4"><span class="section-number-3">1.1.</span> Usage</h3>
 <div class="outline-text-3" id="text-1-1">
+<p>
+You can launch it by just typing <code>ampire</code>. However, if no songs have been initalized,
+the file selection dialoge will not work (unimplemented). So add some songs by doing:
+<code>ampire &lt;path_to_musc&gt;</code> or by doing <code>ampire -r &lt;path_to_musc&gt;</code> for a recursive search.
+</p>
+
+<p>
+After this, <code>ampire</code> will remember those paths and you can just call it normally.
+</p>
+</div>
+</div>
+<div id="outline-container-org0146354" class="outline-3">
+<h3 id="org0146354"><span class="section-number-3">1.2.</span> Dependencies</h3>
+<div class="outline-text-3" id="text-1-2">
 <ul class="org-ul">
 <li>SDL3       &lt;vendored&gt; (no download required)</li>
 <li>SDL3<sub>mixer</sub> &lt;vendored&gt; (no download required)</li>
@@ -248,9 +263,9 @@ there are many bugs and it may not work properly.
 </ul>
 </div>
 </div>
-<div id="outline-container-orgceacecf" class="outline-3">
-<h3 id="orgceacecf"><span class="section-number-3">1.2.</span> Compiling and Installing</h3>
-<div class="outline-text-3" id="text-1-2">
+<div id="outline-container-orgc57f1a2" class="outline-3">
+<h3 id="orgc57f1a2"><span class="section-number-3">1.3.</span> Compiling and Installing</h3>
+<div class="outline-text-3" id="text-1-3">
 <p>
 Perform the following the compile <code>ampire</code>.
 </p>
@@ -295,9 +310,9 @@ then try running it again.
 </ul>
 </div>
 </div>
-<div id="outline-container-org96b3858" class="outline-3">
-<h3 id="org96b3858"><span class="section-number-3">1.3.</span> Controls</h3>
-<div class="outline-text-3" id="text-1-3">
+<div id="outline-container-org89e584b" class="outline-3">
+<h3 id="org89e584b"><span class="section-number-3">1.4.</span> Controls</h3>
+<div class="outline-text-3" id="text-1-4">
 <table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
 
 
@@ -465,9 +480,9 @@ You can see this table by calling <code>ampire --controls</code>.
 </p>
 </div>
 </div>
-<div id="outline-container-orgb164713" class="outline-3">
-<h3 id="orgb164713"><span class="section-number-3">1.4.</span> Known Bugs</h3>
-<div class="outline-text-3" id="text-1-4">
+<div id="outline-container-org911c129" class="outline-3">
+<h3 id="org911c129"><span class="section-number-3">1.5.</span> Known Bugs</h3>
+<div class="outline-text-3" id="text-1-5">
 <ul class="org-ul">
 <li>It is unable to display non-utf8 characters.</li>
 <li>Occasional clicking could happen when starting a song, but it goes away after a few seconds.</li>
@@ -476,25 +491,25 @@ You can see this table by calling <code>ampire --controls</code>.
 </ul>
 </div>
 </div>
-<div id="outline-container-orgdf3a133" class="outline-3">
-<h3 id="orgdf3a133"><span class="section-number-3">1.5.</span> Screenshots</h3>
-<div class="outline-text-3" id="text-1-5">
+<div id="outline-container-org892bd2d" class="outline-3">
+<h3 id="org892bd2d"><span class="section-number-3">1.6.</span> Screenshots</h3>
+<div class="outline-text-3" id="text-1-6">
 </div>
-<div id="outline-container-orga0ecad7" class="outline-4">
-<h4 id="orga0ecad7"><span class="section-number-4">1.5.1.</span> Large Terminal</h4>
-<div class="outline-text-4" id="text-1-5-1">
+<div id="outline-container-orgaf8d020" class="outline-4">
+<h4 id="orgaf8d020"><span class="section-number-4">1.6.1.</span> Large Terminal</h4>
+<div class="outline-text-4" id="text-1-6-1">
 
-<div id="org0fb59a2" class="figure">
+<div id="org755674e" class="figure">
 <p><img src="./assets/sc1.png" alt="sc1.png" />
 </p>
 </div>
 </div>
 </div>
-<div id="outline-container-org76ae924" class="outline-4">
-<h4 id="org76ae924"><span class="section-number-4">1.5.2.</span> Small Terminal</h4>
-<div class="outline-text-4" id="text-1-5-2">
+<div id="outline-container-org1670ad6" class="outline-4">
+<h4 id="org1670ad6"><span class="section-number-4">1.6.2.</span> Small Terminal</h4>
+<div class="outline-text-4" id="text-1-6-2">
 
-<div id="org7d40b7e" class="figure">
+<div id="org2ea9754" class="figure">
 <p><img src="./assets/sc2.png" alt="sc2.png" />
 </p>
 </div>
@@ -504,7 +519,7 @@ You can see this table by calling <code>ampire --controls</code>.
 </div>
 </div>
 <div id="postamble" class="status">
-<p class="date">Created: 2025-12-27 Sat 11:45</p>
+<p class="date">Created: 2026-01-14 Wed 16:55</p>
 <p class="validation"><a href="https://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
