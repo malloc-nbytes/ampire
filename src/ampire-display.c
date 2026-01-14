@@ -32,39 +32,40 @@ typedef enum {
 } Music_Adv_Type;
 
 typedef struct {
-        size_t uuid;
-        Str_Array *songfps;
-        char *pname;                     // Playlist name
-        Str_Array songnames;             // The stripped songname from the path
-        Size_T_Array history_idxs;
-        size_t sel_songfps_index;
-        size_t scroll_offset;
-        size_t playlist_scroll_offset;
-        int sel_fst_song;                // We have selected at least one song
-        int paused;                      // Is the song currently paused
-        Music_Adv_Type mat;              // What happens after the song ends, normal, shuffle, or loop
-        ssize_t currently_playing_index; // Currently playing music index into `songfps`
-        Mix_Music *current_music;        // Currently playing music
-        Uint64 start_ticks;              // Time when song started
-        Uint64 paused_ticks;             // Accumulated paused time
-        Uint64 pause_start;              // Time when pause began
-        char *prevsearch;                // Previous search used for [n] and [N]
-        int numtracks;                   // The number of songs in the playlist
-        int upnext_idx;                  // The index of the next song to be played
-        int playlist_modified;           // Has the current playlist been modified?
-        int playlist_saved;
-        Size_T_Array queue;              // The 'next-up' songs
+        size_t          uuid;
+        Str_Array      *songfps;
+        char           *pname;                   // Playlist name
+        Str_Array       songnames;               // The stripped songname from the path
+        Size_T_Array    history_idxs;
+        size_t          sel_songfps_index;
+        size_t          scroll_offset;
+        size_t          playlist_scroll_offset;
+        int             sel_fst_song;            // We have selected at least one song
+        int             paused;                  // Is the song currently paused
+        Music_Adv_Type  mat;                     // What happens after the song ends, normal, shuffle, or loop
+        ssize_t         currently_playing_index; // Currently playing music index into `songfps`
+        Mix_Music      *current_music;           // Currently playing music
+        Uint64          start_ticks;             // Time when song started
+        Uint64          paused_ticks;            // Accumulated paused time
+        Uint64          pause_start;             // Time when pause began
+        char           *prevsearch;              // Previous search used for [n] and [N]
+        int             numtracks;               // The number of songs in the playlist
+        int             upnext_idx;              // The index of the next song to be played
+        int             playlist_modified;       // Has the current playlist been modified?
+        int             playlist_saved;
+        Size_T_Array    queue;                   // The 'next-up' songs
+        Size_T_Array    shuffle_queue;           // Queue for shuffling songs
 } Ctx;
 
-static int g_volume = 68;
-static int g_last_volume = 0;
-static int g_scrn_width = 0;
-static int g_scrn_height = 0;
+static int                   g_volume               = 68;
+static int                   g_last_volume          = 0;
+static int                   g_scrn_width           = 0;
+static int                   g_scrn_height          = 0;
 static volatile sig_atomic_t g_oneshot_keep_running = 1;
-static volatile sig_atomic_t g_resize_flag = 0;
-static int g_playlist_page = 0;
-static int g_total_playlist_pages = 0;
-static int g_original_playlist_sz = 0;
+static volatile sig_atomic_t g_resize_flag          = 0;
+static int                   g_playlist_page        = 0;
+static int                   g_total_playlist_pages = 0;
+static int                   g_original_playlist_sz = 0;
 
 DYN_ARRAY_TYPE(Ctx, Ctx_Array);
 
@@ -77,6 +78,7 @@ static WINDOW *left_win;  // Window for song list
 static WINDOW *right_win; // Window for currently playing info
 
 static void pause_audio(Ctx *ctx);
+static void shuffle_song_idxs(Ctx *ctx);
 
 static void cleanup(void) {
         if ((g_config.flags & FT_ONESHOT) == 0) {
@@ -153,7 +155,12 @@ void handle_upnext(Ctx *ctx) {
         else if (ctx->mat == MAT_NORMAL) {
                 r = (ctx->currently_playing_index + 1) % ctx->songfps->len;
         } else if (ctx->mat == MAT_SHUFFLE) {
-                r = getrand(ctx);
+                //r = getrand(ctx);
+                if (ctx->shuffle_queue.len == 0) {
+                        shuffle_song_idxs(ctx);
+                }
+                r = ctx->shuffle_queue.data[0];
+                dyn_array_rm_at(ctx->shuffle_queue, 0);
         } else {
                 r = ctx->currently_playing_index;
         }
@@ -644,9 +651,31 @@ static char *get_song_name(char *path) {
         return sl != -1 ? path+sl+1 : path;
 }
 
+static void shuffle_song_idxs(Ctx *ctx) {
+        if (ctx->numtracks <= 0) {
+                return;
+        }
+
+        for (size_t i = 0; i < ctx->numtracks; i++) {
+                dyn_array_append(ctx->shuffle_queue, i);
+        }
+
+        // Knuth shuffle
+        for (int i = ctx->numtracks - 1; i > 0; i--) {
+                int j = rand() % (i + 1);
+
+                size_t temp                = ctx->shuffle_queue.data[i];
+                ctx->shuffle_queue.data[i] = ctx->shuffle_queue.data[j];
+                ctx->shuffle_queue.data[j] = temp;
+        }
+}
+
 static void handle_adv_type(Ctx *ctx) {
-        if (ctx->mat == MAT_NORMAL) { ctx->mat = MAT_SHUFFLE; }
-        else if (ctx->mat == MAT_SHUFFLE) { ctx->mat = MAT_LOOP; }
+        if (ctx->mat == MAT_NORMAL) {
+                ctx->mat = MAT_SHUFFLE;
+                shuffle_song_idxs(ctx);
+        }
+        else if (ctx->mat == MAT_SHUFFLE) {ctx->mat = MAT_LOOP; }
         else if (ctx->mat == MAT_LOOP) { ctx->mat = MAT_NORMAL; }
         else { assert(0); }
 
@@ -656,7 +685,9 @@ static void handle_adv_type(Ctx *ctx) {
         if (!ctx->sel_fst_song) {
                 if (ctx->songfps->len != 0) {
                         ctx->sel_fst_song = 1;
-                        ctx->currently_playing_index = ctx->sel_songfps_index = (size_t)getrand(ctx);
+                        shuffle_song_idxs(ctx);
+                        ctx->currently_playing_index = ctx->shuffle_queue.data[0];
+                        ctx->sel_songfps_index = ctx->shuffle_queue.data[0];
                         start_song(ctx);
                         dyn_array_append(ctx->history_idxs, ctx->currently_playing_index);
                         adjust_scroll_offset(ctx);
@@ -819,28 +850,29 @@ static void handle_search(Ctx *ctx, size_t startfrom, int rev, char *prevsearch)
 static Ctx ctx_create(Playlist *p) {
         static size_t uuid = 0;
         Ctx ctx = (Ctx) {
-                .uuid = uuid++,
-                .songfps = &p->songfps,
-                .pname = p->name,
-                .history_idxs = dyn_array_empty(Size_T_Array),
-                .songnames = dyn_array_empty(Str_Array),
-                .sel_songfps_index = 0,
-                .scroll_offset = 0,
-                .playlist_scroll_offset = 0,
-                .sel_fst_song = 0,
-                .paused = 0,
-                .mat = MAT_NORMAL,
+                .uuid                    = uuid++,
+                .songfps                 = &p->songfps,
+                .pname                   = p->name,
+                .history_idxs            = dyn_array_empty(Size_T_Array),
+                .songnames               = dyn_array_empty(Str_Array),
+                .sel_songfps_index       = 0,
+                .scroll_offset           = 0,
+                .playlist_scroll_offset  = 0,
+                .sel_fst_song            = 0,
+                .paused                  = 0,
+                .mat                     = MAT_NORMAL,
                 .currently_playing_index = -1,
-                .current_music = NULL,
-                .start_ticks = 0,
-                .paused_ticks = 0,
-                .pause_start = 0,
-                .prevsearch = NULL,
-                .numtracks = p->songfps.len,
-                .upnext_idx = 0,
-                .playlist_modified = 0,
-                .playlist_saved = 0,
-                .queue = dyn_array_empty(Size_T_Array),
+                .current_music           = NULL,
+                .start_ticks             = 0,
+                .paused_ticks            = 0,
+                .pause_start             = 0,
+                .prevsearch              = NULL,
+                .numtracks               = p->songfps.len,
+                .upnext_idx              = 0,
+                .playlist_modified       = 0,
+                .playlist_saved          = 0,
+                .queue                   = dyn_array_empty(Size_T_Array),
+                .shuffle_queue           = dyn_array_empty(Size_T_Array),
         };
         for (size_t i = 0; i < p->songfps.len; ++i) {
                 dyn_array_append(ctx.songnames,
