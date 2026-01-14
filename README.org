@@ -17,6 +17,9 @@ the file selection dialoge will not work (unimplemented). So add some songs by d
 
 After this, =ampire= will remember those paths and you can just call it normally.
 
+If it is giving an error message about not being able to find a library, make sure that
+the linker knows where to search for the installed libraries and call =ldconfig=.
+
 ** Dependencies
 
 - SDL3       <vendored> (no download required)
