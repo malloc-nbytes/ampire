@@ -63,6 +63,7 @@ static int                   g_scrn_width           = 0;
 static int                   g_scrn_height          = 0;
 static volatile sig_atomic_t g_oneshot_keep_running = 1;
 static volatile sig_atomic_t g_resize_flag          = 0;
+static volatile bool         g_need_next_song       = false;
 static int                   g_playlist_page        = 0;
 static int                   g_total_playlist_pages = 0;
 static int                   g_original_playlist_sz = 0;
@@ -254,15 +255,27 @@ static void start_song(Ctx *ctx) {
 }
 
 static void music_finished(void) {
+        /* assert(g_ctx); */
+        /* g_ctx->currently_playing_index = g_ctx->sel_songfps_index = g_ctx->upnext_idx; */
+        /* dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index); */
+        /* if (g_ctx->queue.len > 0) { */
+        /*         dyn_array_rm_at(g_ctx->queue, 0); */
+        /* } */
+        /* Mix_HaltMusic(); */
+        /* start_song(g_ctx); */
+        /* adjust_scroll_offset(g_ctx); */
+
         assert(g_ctx);
+
         g_ctx->currently_playing_index = g_ctx->sel_songfps_index = g_ctx->upnext_idx;
         dyn_array_append(g_ctx->history_idxs, g_ctx->currently_playing_index);
+
         if (g_ctx->queue.len > 0) {
                 dyn_array_rm_at(g_ctx->queue, 0);
         }
+
         Mix_HaltMusic();
-        start_song(g_ctx);
-        adjust_scroll_offset(g_ctx);
+        g_need_next_song = true;
 }
 
 static void pause_audio(Ctx *ctx) {
@@ -1069,6 +1082,12 @@ void run(const Playlist_Array *playlists) {
                 handle_resize();
                 draw_windows(g_ctx, &ctxs);
                 ch = getch();
+
+                if (g_need_next_song) {
+                        g_need_next_song = false;
+                        start_song(g_ctx);
+                        adjust_scroll_offset(g_ctx);
+                }
 
                 // TODO: enable this feature again.
                 // it currently is bugged when you use it
